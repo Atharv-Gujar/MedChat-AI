@@ -1,16 +1,18 @@
 # MedChat AI
 
-A modern, AI-powered medical consultation chatbot built with React and Vite. MedChat AI provides multi-modal diagnostic capabilities including X-Ray, MRI, and CT scan analysis with real-time AI-generated reports.
+A modern, AI-powered medical consultation chatbot built with React and Vite. MedChat AI provides multi-modal diagnostic capabilities including X-Ray, MRI, and CT scan analysis with real-time AI-generated reports, auto-advancing MCQ flows, and Supabase data persistence.
 
 ## Features
 
 - **Multi-Modal Diagnostics** — Analyze X-Rays, MRI scans, CT scans, and general medical queries
+- **Interactive MCQ Flow** — Intelligent auto-advancing multi-choice symptom assessment 
+- **Differential Diagnosis Visualization** — Professional progress bar charts indicating probability percentages for various conditions
+- **Cloud Persistence (Supabase)** — Chat history, sessions, and medical images are securely saved to the cloud
 - **Image Upload & Analysis** — Upload medical images for instant AI-generated diagnostic reports
 - **Real-Time Streaming** — AI responses stream in real-time for a responsive experience
 - **Voice Input & Output** — Speak your queries and listen to AI responses using Web Speech API
-- **PDF Export** — Export consultation logs as clean, printable PDF documents
+- **Professional PDF Export** — Export consultation logs as clinical-grade printable PDF documents
 - **Dark & Light Themes** — Professional UI with seamless theme switching
-- **Persistent Chat History** — Conversations are saved locally per diagnostic section
 - **Drag & Drop** — Drag medical images directly into the chat
 
 ## Tech Stack
@@ -19,8 +21,9 @@ A modern, AI-powered medical consultation chatbot built with React and Vite. Med
 |---|---|
 | React 19 | UI framework |
 | Vite 6 | Build tool & dev server |
-| Tailwind CSS 4 | Styling |
+| Tailwind CSS 4 | Styling & Animations |
 | Hugging Face API | AI model backend (MedGemma) |
+| Supabase | PostgreSQL Database, Authentication & Edge Storage |
 | Web Speech API | Voice input & text-to-speech |
 
 ## Getting Started
@@ -29,6 +32,8 @@ A modern, AI-powered medical consultation chatbot built with React and Vite. Med
 
 - Node.js 18+
 - npm or yarn
+- Supabase Project
+- Hugging Face API Token
 
 ### Installation
 
@@ -43,7 +48,26 @@ npm install
 Create a `.env` file in the project root:
 
 ```env
+# HuggingFace Token: https://huggingface.co/settings/tokens
 VITE_API_KEY=your-huggingface-api-key
+
+# Supabase Configuration
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
+```
+
+### Database Setup
+
+Run the following in your Supabase SQL Editor:
+```sql
+CREATE TABLE chat_sessions (id uuid default uuid_generate_v4() primary key, section text, title text, created_at timestamp default now(), updated_at timestamp default now());
+CREATE TABLE messages (id uuid default uuid_generate_v4() primary key, session_id uuid references chat_sessions on delete cascade, role text, content text, image_url text, metadata jsonb default '{}'::jsonb, created_at timestamp default now());
+
+-- Enable RLS and public access for development
+ALTER TABLE chat_sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all on chat_sessions" ON chat_sessions FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all on messages" ON messages FOR ALL USING (true) WITH CHECK (true);
 ```
 
 ### Run Development Server
@@ -64,41 +88,20 @@ npm run build
 
 ```
 medchat/
-├── index.html
 ├── package.json
 ├── tailwind.config.js
-├── vite.config.js
 └── src/
-    ├── App.jsx              # Main application component
+    ├── App.jsx              # Main application routing
     ├── config.js            # API keys, model config, system prompts
-    ├── index.css            # Global styles & print styles
-    ├── main.jsx             # Entry point
+    ├── lib/
+    │   ├── api.js           # HuggingFace API integration
+    │   ├── export.js        # PDF Medical Report generator
+    │   └── supabase.js      # Supabase Client & CRUD helpers
     └── components/
-        ├── InputArea.jsx    # Text input, image upload, voice input
-        ├── Message.jsx      # Chat message rendering with markdown
-        ├── Sidebar.jsx      # Navigation, theme toggle, actions
-        ├── Toast.jsx        # Notification toasts
-        ├── TopBar.jsx       # Top bar with export & notifications
-        ├── VoiceButton.jsx  # Text-to-speech for messages
-        └── WelcomeScreen.jsx # Landing page with feature cards
+        ├── Message.jsx      # Chat message rendering with charts
+        ├── SymptomChecker.jsx # Auto-advancing MCQ interface
+        └── ...
 ```
-
-## Diagnostic Modes
-
-| Mode | Behavior |
-|---|---|
-| General Medical | Interactive — asks follow-up questions before diagnosis |
-| X-Ray Analysis | Direct — generates comprehensive report from uploaded image |
-| MRI Scan | Direct — generates comprehensive report from uploaded image |
-| CT Scan | Direct — generates comprehensive report from uploaded image |
-
-## PDF Export
-
-Click the document icon in the top bar to export the current consultation as a PDF. The export includes:
-- MedChat AI branded header
-- Department and timestamp
-- Full consultation log with Patient/AI labels
-- Disclaimer footer
 
 ## Disclaimer
 

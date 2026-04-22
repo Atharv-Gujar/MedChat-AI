@@ -64,7 +64,7 @@ export default function VoiceButton({ text, theme }) {
         ${speaking
           ? 'bg-blue-500/20 text-blue-400 animate-pulse'
           : dark
-            ? 'text-slate-500 hover:text-blue-400 hover:bg-white/[0.06]'
+            ? 'text-slate-500 hover:text-blue-400 hover:bg-white/5'
             : 'text-slate-400 hover:text-blue-500 hover:bg-black/[0.04]'
         }`}
     >

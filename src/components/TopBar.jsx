@@ -1,65 +1,54 @@
-export default function TopBar({ theme, onMenuClick, onExport, hasMessages }) {
+export default function TopBar({ onMenuClick, theme, toggleTheme }) {
   const dark = theme === 'dark';
 
   return (
-    <div className={`flex items-center justify-between px-5 py-3 border-b z-20
-      ${dark ? 'bg-dark-800/80 border-white/[0.06] backdrop-blur-xl' : 'bg-white/80 border-slate-200/60 backdrop-blur-xl'}`}
-    >
+    <div className="flex items-center justify-between px-5 py-3 z-20 glass"
+      style={{ background: dark ? 'rgba(19,27,46,0.8)' : 'rgba(255,255,255,0.8)', backdropFilter: 'blur(12px)' }}>
+      {/* Left */}
       <div className="flex items-center gap-3">
-        <button
-          onClick={onMenuClick}
-          className={`w-9 h-9 flex flex-col items-center justify-center gap-[5px] rounded-xl md:hidden transition-colors
-            ${dark ? 'hover:bg-white/[0.06]' : 'hover:bg-slate-100'}`}
-        >
-          <span className={`block w-4 h-[1.5px] rounded-full ${dark ? 'bg-slate-400' : 'bg-slate-600'}`} />
-          <span className={`block w-4 h-[1.5px] rounded-full ${dark ? 'bg-slate-400' : 'bg-slate-600'}`} />
-          <span className={`block w-4 h-[1.5px] rounded-full ${dark ? 'bg-slate-400' : 'bg-slate-600'}`} />
+        <button onClick={onMenuClick} className="w-9 h-9 flex flex-col items-center justify-center gap-[5px] rounded-xl md:hidden transition-colors hover:opacity-70">
+          <span className="block w-4 h-[1.5px] rounded-full" style={{ background: 'var(--on-surface-variant)' }} />
+          <span className="block w-4 h-[1.5px] rounded-full" style={{ background: 'var(--on-surface-variant)' }} />
+          <span className="block w-4 h-[1.5px] rounded-full" style={{ background: 'var(--on-surface-variant)' }} />
         </button>
-        <h1 className="text-base font-bold md:hidden bg-gradient-to-r from-brand-500 to-emerald-500 bg-clip-text text-transparent">
-          MedChat AI
-        </h1>
+        <h1 className="text-base font-extrabold tracking-tight font-display" style={{ color: 'var(--primary)' }}>MedChat AI</h1>
       </div>
 
-      <div className="flex-1" />
-
-      <div className="flex items-center gap-1.5">
-        <button
-          onClick={onExport}
-          disabled={!hasMessages}
-          title="Export as PDF"
-          className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all
-            ${!hasMessages
-              ? 'opacity-25 cursor-not-allowed'
-              : dark
-                ? 'text-slate-400 hover:text-brand-400 hover:bg-white/[0.06]'
-                : 'text-slate-500 hover:text-brand-500 hover:bg-slate-100'
-            }`}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-[18px] h-[18px]">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-            <polyline points="14 2 14 8 20 8" />
-            <line x1="16" y1="13" x2="8" y2="13" />
-            <line x1="16" y1="17" x2="8" y2="17" />
+      {/* Center: Search */}
+      <div className="hidden md:flex items-center flex-1 max-w-md mx-6">
+        <div className="relative w-full">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--outline)' }}>
+            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
+          <input
+            placeholder="Search diagnostics..."
+            className="w-full pl-10 pr-4 py-2.5 rounded-2xl text-sm outline-none transition-all"
+            style={{
+              background: dark ? 'rgba(255,255,255,0.04)' : 'var(--surface-container)',
+              color: 'var(--on-surface)',
+              border: 'none',
+              boxShadow: `inset 0 0 0 1px ${dark ? 'rgba(63,73,73,0.25)' : 'rgba(203,213,225,0.5)'}`,
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Right */}
+      <div className="flex items-center gap-2">
+        {/* Dark mode toggle */}
+        <button onClick={toggleTheme} className="w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 hover:opacity-70"
+          style={{ color: 'var(--on-surface-variant)' }} title={dark ? 'Light mode' : 'Dark mode'}>
+          {dark ? (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-[18px] h-[18px]"><circle cx="12" cy="12" r="5" /><line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" /><line x1="4.22" y1="4.22" x2="5.64" y2="5.64" /><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" /><line x1="1" y1="12" x2="3" y2="12" /><line x1="21" y1="12" x2="23" y2="12" /><line x1="4.22" y1="19.78" x2="5.64" y2="18.36" /><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" /></svg>
+          ) : (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-[18px] h-[18px]"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></svg>
+          )}
         </button>
 
-        <button
-          className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all relative
-            ${dark ? 'text-slate-400 hover:text-white hover:bg-white/[0.06]' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'}`}
-        >
+        {/* Profile */}
+        <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: dark ? 'rgba(122,215,198,0.1)' : 'rgba(0,121,107,0.08)', color: 'var(--primary)' }}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-[18px] h-[18px]">
-            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-            <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-          </svg>
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-brand-500" />
-        </button>
-
-        <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold ml-1
-          ${dark ? 'bg-brand-500/15 text-brand-400' : 'bg-brand-100 text-brand-600'}`}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-[18px] h-[18px]">
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-            <circle cx="12" cy="7" r="4" />
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
           </svg>
         </div>
       </div>

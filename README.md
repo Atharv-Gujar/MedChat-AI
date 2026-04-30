@@ -39,9 +39,9 @@
 - **Source selection controls** — Toggle individual sources on/off with real-time status
 - **Cited responses** — Every answer includes clickable source citations
 
-### 📄 RAG (Retrieval-Augmented Generation)
+### 📄 Document-Augmented Diagnosis
 - **Upload medical reports** (PDF, images) for AI-contextualized diagnosis
-- **Cohere embeddings** for semantic document understanding
+- **Full-text extraction** from uploaded documents
 - **Automatic report injection** into diagnostic context
 
 ### 🌐 Multi-Language Support
@@ -83,7 +83,7 @@
 | **AI Model** | HuggingFace Inference API (Mistral / medical LLMs) |
 | **Auth & DB** | Supabase (PostgreSQL + Auth + Row Level Security) |
 | **Web Search** | Tavily AI Search (primary), WHO GHO API, PubMed E-utilities |
-| **RAG** | Cohere Embed API + cosine similarity |
+| **Document Processing** | Full-text extraction + Supabase storage |
 | **PDF Parsing** | pdf.js (Mozilla) |
 | **Localization** | Custom i18n system (11 languages) |
 | **Export** | Browser-native PDF generation with styled templates |
@@ -98,7 +98,6 @@
 - API keys (all have free tiers):
   - [HuggingFace](https://huggingface.co/settings/tokens) — AI model inference
   - [Supabase](https://supabase.com) — Authentication & database
-  - [Cohere](https://dashboard.cohere.com/api-keys) — RAG embeddings
   - [Tavily](https://tavily.com) — Web search (1000 free/month)
 
 ### Installation
@@ -128,7 +127,6 @@ The app will be available at `http://localhost:5173/`
 | `VITE_API_KEY` | ✅ | HuggingFace API token for AI inference |
 | `VITE_SUPABASE_URL` | ✅ | Supabase project URL |
 | `VITE_SUPABASE_ANON_KEY` | ✅ | Supabase anonymous/public key |
-| `VITE_COHERE_API_KEY` | ⚡ | Cohere API key (needed for RAG/report upload) |
 | `VITE_TAVILY_API_KEY` | ⚡ | Tavily API key (needed for web search in Research module) |
 
 > **Note:** WHO and PubMed APIs are completely free and require no API keys.
@@ -162,7 +160,7 @@ MedChat-AI/
 │   ├── lib/
 │   │   ├── api.js               # HuggingFace streaming inference
 │   │   ├── export.js            # PDF report generation
-│   │   ├── rag.js               # Cohere embeddings + retrieval
+│   │   ├── rag.js               # Document retrieval from Supabase
 │   │   ├── search.js            # Tavily + WHO + PubMed orchestrator
 │   │   └── supabase.js          # Supabase client & session management
 │   ├── pages/

@@ -236,3 +236,74 @@ html.dark .ambient-glow {
 @keyframes growBar {
   from { width: 0; }
 }
+
+/* ─── Mobile Responsive ───────────────────────────────── */
+
+/* Safe area for notched phones (iPhone X+, etc.) */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .px-4, .px-6 { padding-left: max(1rem, env(safe-area-inset-left)); padding-right: max(1rem, env(safe-area-inset-right)); }
+}
+
+/* Small devices (phones, < 640px) */
+@media (max-width: 639px) {
+  /* Tighter scrollbar */
+  ::-webkit-scrollbar { width: 3px; }
+
+  /* Hero banner compact */
+  .hero-banner { border-radius: 1rem !important; margin: 0.5rem !important; }
+  .hero-banner h1 { font-size: 1.5rem !important; }
+
+  /* Feature cards: single column with less padding */
+  .feature-card { padding: 1rem !important; border-radius: 1rem !important; }
+  .feature-card .w-12 { width: 2.5rem !important; height: 2.5rem !important; border-radius: 0.75rem !important; }
+
+  /* Prompt pills compact */
+  .prompt-pill { padding: 0.4rem 0.75rem; font-size: 0.65rem; }
+
+  /* Message content compact */
+  .msg-content h2, .msg-content h3, .msg-content h4 { padding: 6px 10px; margin: 10px 0 4px; font-size: 0.82rem !important; }
+  .msg-content p { font-size: 0.82rem; line-height: 1.7; margin-bottom: 6px; }
+  .msg-content li { font-size: 0.8rem; padding-left: 16px; }
+
+  /* Touch-friendly targets: minimum 44px */
+  button, a, input, textarea, select { min-height: 36px; }
+  .action-chip { min-height: 32px; padding: 6px 10px; }
+
+  /* Input area tighter */
+  textarea { font-size: 16px !important; /* prevents iOS zoom */ }
+
+  /* Auth input: prevent iOS zoom */
+  .auth-input { font-size: 16px !important; }
+
+  /* Dashboard export bar compact */
+  .export-bar { flex-direction: column; gap: 0.5rem; text-align: center; }
+
+  /* X-ray viewer: full width on mobile */
+  .xray-viewer { min-height: 200px; border-radius: 0.75rem; }
+}
+
+/* Medium devices (tablets, 640px - 1023px) */
+@media (min-width: 640px) and (max-width: 1023px) {
+  .hero-banner h1 { font-size: 2rem !important; }
+  .feature-card { padding: 1.25rem !important; }
+}
+
+/* Landscape phone */
+@media (max-height: 500px) and (orientation: landscape) {
+  .hero-banner { padding-top: 1.5rem !important; padding-bottom: 1.5rem !important; }
+  .hero-banner h1 { font-size: 1.3rem !important; }
+}
+
+/* Hover only on devices with hover capability */
+@media (hover: none) {
+  .feature-card:hover { transform: none !important; box-shadow: none !important; }
+  .prompt-pill:hover { transform: none !important; }
+  .dash-btn-primary:hover { transform: none !important; }
+  .dash-btn-secondary:hover { transform: none !important; }
+}
+
+/* Print styles */
+@media print {
+  .hero-banner, nav, aside, button { display: none !important; }
+  .msg-content { font-size: 12pt; }
+}

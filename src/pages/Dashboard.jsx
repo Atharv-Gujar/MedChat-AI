@@ -73,7 +73,7 @@ export default function Dashboard({ theme }) {
         {messages.length === 0 ? (
           <div className="animate-fadeIn">
             {/* Hero */}
-            <div className="hero-banner px-6 md:px-10 py-10 md:py-14 mx-4 mt-4 rounded-3xl relative overflow-hidden">
+            <div className="hero-banner px-4 sm:px-6 md:px-10 py-8 sm:py-10 md:py-14 mx-3 sm:mx-4 mt-3 sm:mt-4 rounded-2xl sm:rounded-3xl relative overflow-hidden">
               <div className="relative z-10 max-w-2xl">
                 <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold mb-4 backdrop-blur-md"
                   style={{ background: 'rgba(122,215,198,0.08)', color: '#7ad7c6', border: '1px solid rgba(122,215,198,0.12)' }}>
@@ -103,7 +103,7 @@ export default function Dashboard({ theme }) {
             </div>
 
             {/* Feature Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 px-4 mt-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4 px-3 sm:px-4 mt-4 sm:mt-5">
               {Object.entries(SECTIONS).map(([key, s]) => {
                 const m = sectionMeta[key];
                 return (
@@ -120,8 +120,8 @@ export default function Dashboard({ theme }) {
             </div>
 
             {/* Suggested Prompts */}
-            <div className="px-4 mt-6 mb-4">
-              <h3 className="text-[0.65rem] font-bold uppercase tracking-[0.15em] mb-3 px-1" style={{ color: 'var(--outline)' }}>{t('suggested_prompts')}</h3>
+            <div className="px-3 sm:px-4 mt-4 sm:mt-6 mb-3 sm:mb-4">
+              <h3 className="text-[0.6rem] sm:text-[0.65rem] font-bold uppercase tracking-[0.15em] mb-2 sm:mb-3 px-1" style={{ color: 'var(--outline)' }}>{t('suggested_prompts')}</h3>
               <div className="flex flex-wrap gap-2">
                 {[t('prompt_cough'), t('prompt_imaging'), t('prompt_xray'), t('prompt_mri_ct')].map((p, i) => (
                   <button key={i} onClick={() => sendMessage(p)} className="prompt-pill">{p}</button>

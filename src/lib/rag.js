@@ -19,20 +19,14 @@ export async function extractTextFromPDF(file) {
   return fullText.trim();
 }
 
-// ─── Image Text Extraction (Vision AI) ──────────────────
-// Uses the same multimodal LLM to read handwritten prescriptions,
-// lab reports, and medical documents from images.
-export async function extractTextFromImage(file) {
-  const base64 = await new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.readAsDataURL(file);
-  });
+// ─── Image Text Extraction (Gemini Flash Vision) ────────
+// Uses Google Gemini Flash for superior handwriting and medical document OCR.
+// Falls back to HuggingFace if Gemini key is not configured.
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
+const GEMINI_MODEL = 'gemini-2.0-flash';
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
-  // Use the Vision AI model to extract text from the image
-  const { API_KEY, API_URL, MODEL } = await import('../config');
-
-  const extractionPrompt = `You are a medical document OCR specialist. Extract ALL text from this medical document image.
+const EXTRACTION_PROMPT = `You are a medical document OCR specialist. Extract ALL text from this medical document image.
 
 RULES:
 1. Extract EVERY piece of text you can read — printed AND handwritten.
@@ -68,7 +62,57 @@ Registration/ID: ...
 --- ADDITIONAL NOTES ---
 (any other text on the document)`;
 
+export async function extractTextFromImage(file) {
+  // Convert file to base64
+  const base64Full = await new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.readAsDataURL(file);
+  });
+
+  // Strip the data URI prefix for Gemini API (it needs raw base64)
+  const base64Data = base64Full.split(',')[1];
+  const mimeType = file.type || 'image/jpeg';
+
+  // ─── Try Gemini Flash first (much better at handwriting) ───
+  if (GEMINI_API_KEY) {
+    try {
+      const response = await fetch(`${GEMINI_URL}?key=${GEMINI_API_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { text: `${EXTRACTION_PROMPT}\n\nExtract all text from this medical document image. Read both printed and handwritten text carefully.` },
+              { inline_data: { mime_type: mimeType, data: base64Data } },
+            ],
+          }],
+          generationConfig: {
+            temperature: 0.1,
+            maxOutputTokens: 4096,
+          },
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const extractedText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+        if (extractedText && extractedText.trim().length > 50) {
+          return `[Extracted from image: ${file.name} — via Gemini Flash]\n\n${extractedText.trim()}`;
+        }
+      } else {
+        console.warn('Gemini extraction failed:', response.status, await response.text().catch(() => ''));
+      }
+    } catch (err) {
+      console.warn('Gemini extraction error, falling back to HuggingFace:', err.message);
+    }
+  }
+
+  // ─── Fallback: HuggingFace Vision model ───
   try {
+    const { API_KEY, API_URL, MODEL } = await import('../config');
+
     const response = await fetch(API_URL, {
       method: 'POST',
       headers: {
@@ -78,38 +122,34 @@ Registration/ID: ...
       body: JSON.stringify({
         model: MODEL,
         messages: [
-          { role: 'system', content: extractionPrompt },
+          { role: 'system', content: EXTRACTION_PROMPT },
           {
             role: 'user',
             content: [
               { type: 'text', text: 'Extract all text from this medical document image. Read both printed and handwritten text carefully.' },
-              { type: 'image_url', image_url: { url: base64 } },
+              { type: 'image_url', image_url: { url: base64Full } },
             ],
           },
         ],
         max_tokens: 2048,
-        temperature: 0.1, // Low temperature for accurate extraction
+        temperature: 0.1,
         stream: false,
       }),
     });
 
-    if (!response.ok) {
-      console.warn('Vision API extraction failed, falling back to placeholder');
-      return `[Medical Image: ${file.name}] — Image uploaded. Handwritten content could not be auto-extracted. The AI will analyze this image visually during chat.`;
+    if (response.ok) {
+      const data = await response.json();
+      const extractedText = data.choices?.[0]?.message?.content;
+
+      if (extractedText && extractedText.trim().length > 50) {
+        return `[Extracted from image: ${file.name} — via HuggingFace]\n\n${extractedText.trim()}`;
+      }
     }
-
-    const data = await response.json();
-    const extractedText = data.choices?.[0]?.message?.content;
-
-    if (extractedText && extractedText.trim().length > 50) {
-      return `[Extracted from image: ${file.name}]\n\n${extractedText.trim()}`;
-    }
-
-    return `[Medical Image: ${file.name}] — Image uploaded but text extraction yielded minimal results. The AI will analyze this image visually during chat.`;
   } catch (err) {
-    console.error('Image text extraction error:', err);
-    return `[Medical Image: ${file.name}] — Image uploaded. Auto-extraction failed (${err.message}). The AI will analyze this image visually during chat.`;
+    console.error('HuggingFace extraction also failed:', err);
   }
+
+  return `[Medical Image: ${file.name}] — Image uploaded but text extraction failed. The AI will analyze this image visually during chat.`;
 }
 
 // ─── Upload & Store Document ─────────────────────────────

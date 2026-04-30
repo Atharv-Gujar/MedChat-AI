@@ -31,16 +31,28 @@ const localeImporters = {
   ur: () => import('./locales/ur.json'),
 };
 
-/** Lazily load translations for a given language code. Returns the dict. */
+/** Lazily load translations for a given language code.
+ *  Always merges with English as fallback so missing keys show English text
+ *  instead of raw key names.
+ */
 export async function loadTranslations(code) {
+  // Always load English as the base
+  const enMod = await localeImporters.en();
+  const enDict = enMod.default || enMod;
+
+  if (code === 'en') return enDict;
+
   const importer = localeImporters[code];
   if (!importer) {
     console.warn(`No locale found for "${code}", falling back to English.`);
-    const fallback = await localeImporters.en();
-    return fallback.default || fallback;
+    return enDict;
   }
+
   const mod = await importer();
-  return mod.default || mod;
+  const localeDict = mod.default || mod;
+
+  // Merge: locale overrides English defaults
+  return { ...enDict, ...localeDict };
 }
 
 /** Get language metadata by code. */

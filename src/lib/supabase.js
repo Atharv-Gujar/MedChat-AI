@@ -19,11 +19,13 @@ export function isSupabaseConfigured() {
 
 // ─── Chat Sessions ───────────────────────────────────────
 
-export async function createChatSession(section, title = '') {
+export async function createChatSession(section, title = '', userId = null) {
   if (!supabase) return null;
+  const insertData = { section, title: title || `${section} Session` };
+  if (userId) insertData.user_id = userId;
   const { data, error } = await supabase
     .from('chat_sessions')
-    .insert({ section, title: title || `${section} Session` })
+    .insert(insertData)
     .select()
     .single();
   if (error) { console.error('Create session error:', error); return null; }

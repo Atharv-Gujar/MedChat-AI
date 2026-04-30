@@ -2,11 +2,28 @@ import { SECTIONS, API_KEY, API_URL, MODEL } from '../config';
 
 /**
  * Stream a chat completion from the HuggingFace API.
- * Extracted from App.jsx for reuse across pages.
+ * Supports optional RAG context and web search context injection into the system prompt.
+ * @param {string} language — The display name of the language to respond in (e.g. "Hindi")
+ * @param {string} webSearchContext — Formatted web search results to inject
  */
-export async function callAPIStream(text, image, section, prevHistory, onChunk) {
+export async function callAPIStream(text, image, section, prevHistory, onChunk, ragContext = '', language = '', webSearchContext = '') {
   const sec = SECTIONS[section];
-  const systemPrompt = sec.systemPrompt;
+  let systemPrompt = sec.systemPrompt;
+
+  // Inject RAG context if available
+  if (ragContext) {
+    systemPrompt += `\n\n## Patient's Uploaded Medical Records & Reports:\n${ragContext}\n\n## CRITICAL — REPORT ANALYSIS MODE ACTIVE:\nYou are now in MODE 3 (Report Analysis). Follow these rules STRICTLY:\n1. DO NOT respond with MCQ JSON. Respond with natural, readable text ONLY.\n2. Directly analyze and reference the patient's uploaded documents above.\n3. Answer directly and concisely. DO NOT prefix every answer with "Based on your uploaded report" or mention the report filename. Just state the medical facts directly. Example: "Your RBC count is 4.2 million/μL, which is slightly low..."\n4. If the user asks a question about their health, answer it using their uploaded records.\n5. In any Diagnostic Report, add a "### Referenced Documents" section listing which reports were used.\n6. Incorporate lab values, imaging findings, and prior diagnoses from the documents into your analysis.`;
+  }
+
+  // Inject web search context if available
+  if (webSearchContext) {
+    systemPrompt += `\n\n## Latest Medical Information from Live Web Search:\n${webSearchContext}\n\n## CRITICAL — WEB SEARCH RESPONSE MODE ACTIVE:\nThe user is asking for medical INFORMATION, not a symptom diagnosis. Follow these rules STRICTLY:\n1. DO NOT respond with MCQ JSON. DO NOT ask assessment questions. Respond with natural, readable, informative text ONLY.\n2. Use the web search results above to provide accurate, up-to-date medical information.\n3. PRIORITIZE the "Latest Web News" section first for the most current context, then use WHO Statistics/Outbreaks, and finally PubMed for academic depth.\n4. Structure your response with clear headings (##), bullet points, and organized sections.\n5. ALWAYS cite your sources. Use the format: "According to [Source Title]..." or add a "### Sources" section at the end listing all references.\n6. If the web search results include PubMed research papers, reference them by title and PMID.\n7. If the web search results conflict with your training data, prefer the web search results as they are more recent.\n8. Do NOT fabricate or hallucinate URLs or citations — only cite sources that appear in the web search results above.\n9. Provide a comprehensive, well-structured answer. Include key findings, statistics, and recommendations where relevant.`;
+  }
+
+  // Inject language preference
+  if (language && language !== 'English') {
+    systemPrompt += `\n\n## LANGUAGE INSTRUCTION:\nYou MUST respond entirely in ${language}. All text, questions, options, headings, and explanations must be in ${language}. Use medical terminology in ${language} where possible, but keep drug names and medical abbreviations in English.`;
+  }
 
   const messages = [{ role: 'system', content: systemPrompt }];
 

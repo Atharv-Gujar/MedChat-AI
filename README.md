@@ -1,112 +1,249 @@
-# MedChat AI
+<div align="center">
 
-A modern, AI-powered medical consultation chatbot built with React and Vite. MedChat AI provides multi-modal diagnostic capabilities including X-Ray, MRI, and CT scan analysis with real-time AI-generated reports, auto-advancing MCQ flows, and Supabase data persistence.
+# 🏥 MedChat AI
 
-## Features
+### AI-Powered Multi-Modal Medical Diagnostic Platform
 
-- **Multi-Modal Diagnostics** — Analyze X-Rays, MRI scans, CT scans, and general medical queries
-- **Interactive MCQ Flow** — Intelligent auto-advancing multi-choice symptom assessment 
-- **Differential Diagnosis Visualization** — Professional progress bar charts indicating probability percentages for various conditions
-- **Cloud Persistence (Supabase)** — Chat history, sessions, and medical images are securely saved to the cloud
-- **Image Upload & Analysis** — Upload medical images for instant AI-generated diagnostic reports
-- **Real-Time Streaming** — AI responses stream in real-time for a responsive experience
-- **Voice Input & Output** — Speak your queries and listen to AI responses using Web Speech API
-- **Professional PDF Export** — Export consultation logs as clinical-grade printable PDF documents
-- **Dark & Light Themes** — Professional UI with seamless theme switching
-- **Drag & Drop** — Drag medical images directly into the chat
+[![React](https://img.shields.io/badge/React-19.x-61DAFB?style=flat&logo=react)](https://reactjs.org/)
+[![Vite](https://img.shields.io/badge/Vite-6.x-646CFF?style=flat&logo=vite)](https://vitejs.dev/)
+[![Supabase](https://img.shields.io/badge/Supabase-Auth%20%2B%20DB-3ECF8E?style=flat&logo=supabase)](https://supabase.com/)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-## Tech Stack
+*A comprehensive medical consultation platform that combines AI diagnostics, medical image analysis, real-time research retrieval, and multi-language support.*
 
-| Technology | Purpose |
-|---|---|
-| React 19 | UI framework |
-| Vite 6 | Build tool & dev server |
-| Tailwind CSS 4 | Styling & Animations |
-| Hugging Face API | AI model backend (MedGemma) |
-| Supabase | PostgreSQL Database, Authentication & Edge Storage |
-| Web Speech API | Voice input & text-to-speech |
+---
 
-## Getting Started
+[Features](#-features) • [Demo](#-screenshots) • [Tech Stack](#-tech-stack) • [Setup](#-getting-started) • [Architecture](#-architecture) • [Languages](#-supported-languages)
+
+</div>
+
+---
+
+## ✨ Features
+
+### 🩺 AI Medical Consultation
+- **Symptom-based diagnosis** with interactive MCQ-driven assessments
+- **Differential diagnosis** with probability charts and clinical reasoning
+- **Diagnostic reports** exportable as styled PDFs
+- **Conversation memory** — maintains clinical context across the session
+
+### 🔬 Medical Image Analysis
+- **X-Ray, MRI & CT scan** interpretation via AI
+- **Drag & drop** image upload with preview
+- **Real-time clinical findings** extraction from medical images
+
+### 📚 Medical Research Module
+- **Tavily AI Search** — Real-time web search with AI-summarized answers and image results
+- **WHO Global Health Observatory** — Live statistics and disease outbreak alerts
+- **PubMed** — Latest peer-reviewed medical research papers
+- **Source selection controls** — Toggle individual sources on/off with real-time status
+- **Cited responses** — Every answer includes clickable source citations
+
+### 📄 RAG (Retrieval-Augmented Generation)
+- **Upload medical reports** (PDF, images) for AI-contextualized diagnosis
+- **Cohere embeddings** for semantic document understanding
+- **Automatic report injection** into diagnostic context
+
+### 🌐 Multi-Language Support
+- **11 Indian languages** with real-time UI translation
+- AI responses adapt to the selected language
+- All interface elements, prompts, and status messages are fully localized
+
+### 🔐 Authentication & Persistence
+- **Supabase Auth** with email/password and Google OAuth
+- **Chat session persistence** — conversations saved and restored across sessions
+- **Protected routes** — secure access to diagnostic features
+
+### 🎙️ Voice & Accessibility
+- **Voice input** — speak your symptoms instead of typing
+- **Text-to-speech** — listen to AI responses
+- **Dark/Light mode** with smooth transitions
+- **Responsive design** — works on mobile, tablet, and desktop
+
+---
+
+## 🖼️ Screenshots
+
+| Dashboard | AI Consultation | Research Module |
+|:---------:|:---------------:|:---------------:|
+| Multi-modal diagnostic hub | Symptom MCQ + diagnosis chart | Tavily + WHO + PubMed search |
+
+| Scan Analysis | Multi-Language | Dark Mode |
+|:-------------:|:--------------:|:---------:|
+| X-Ray/MRI/CT interpretation | 11 Indian languages | Full dark theme support |
+
+---
+
+## 🛠️ Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| **Frontend** | React 19, React Router 7, Tailwind CSS 3 |
+| **Build** | Vite 6 |
+| **AI Model** | HuggingFace Inference API (Mistral / medical LLMs) |
+| **Auth & DB** | Supabase (PostgreSQL + Auth + Row Level Security) |
+| **Web Search** | Tavily AI Search (primary), WHO GHO API, PubMed E-utilities |
+| **RAG** | Cohere Embed API + cosine similarity |
+| **PDF Parsing** | pdf.js (Mozilla) |
+| **Localization** | Custom i18n system (11 languages) |
+| **Export** | Browser-native PDF generation with styled templates |
+
+---
+
+## 🚀 Getting Started
 
 ### Prerequisites
 
-- Node.js 18+
-- npm or yarn
-- Supabase Project
-- Hugging Face API Token
+- **Node.js** 18+ and **npm** 9+
+- API keys (all have free tiers):
+  - [HuggingFace](https://huggingface.co/settings/tokens) — AI model inference
+  - [Supabase](https://supabase.com) — Authentication & database
+  - [Cohere](https://dashboard.cohere.com/api-keys) — RAG embeddings
+  - [Tavily](https://tavily.com) — Web search (1000 free/month)
 
 ### Installation
 
 ```bash
+# 1. Clone the repository
 git clone https://github.com/Atharv-Gujar/MedChat-AI.git
 cd MedChat-AI
+
+# 2. Install dependencies
 npm install
-```
 
-### Configuration
+# 3. Configure environment variables
+cp .env.example .env
+# Edit .env with your API keys
 
-Create a `.env` file in the project root:
-
-```env
-# HuggingFace Token: https://huggingface.co/settings/tokens
-VITE_API_KEY=your-huggingface-api-key
-
-# Supabase Configuration
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your-anon-key
-```
-
-### Database Setup
-
-Run the following in your Supabase SQL Editor:
-```sql
-CREATE TABLE chat_sessions (id uuid default uuid_generate_v4() primary key, section text, title text, created_at timestamp default now(), updated_at timestamp default now());
-CREATE TABLE messages (id uuid default uuid_generate_v4() primary key, session_id uuid references chat_sessions on delete cascade, role text, content text, image_url text, metadata jsonb default '{}'::jsonb, created_at timestamp default now());
-
--- Enable RLS and public access for development
-ALTER TABLE chat_sessions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow all on chat_sessions" ON chat_sessions FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all on messages" ON messages FOR ALL USING (true) WITH CHECK (true);
-```
-
-### Run Development Server
-
-```bash
+# 4. Start development server
 npm run dev
 ```
 
 The app will be available at `http://localhost:5173/`
 
-### Build for Production
+### Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `VITE_API_KEY` | ✅ | HuggingFace API token for AI inference |
+| `VITE_SUPABASE_URL` | ✅ | Supabase project URL |
+| `VITE_SUPABASE_ANON_KEY` | ✅ | Supabase anonymous/public key |
+| `VITE_COHERE_API_KEY` | ⚡ | Cohere API key (needed for RAG/report upload) |
+| `VITE_TAVILY_API_KEY` | ⚡ | Tavily API key (needed for web search in Research module) |
+
+> **Note:** WHO and PubMed APIs are completely free and require no API keys.
+
+---
+
+## 📁 Architecture
+
+```
+MedChat-AI/
+├── public/
+│   └── pdf.worker.min.mjs      # PDF.js worker for report parsing
+├── src/
+│   ├── components/
+│   │   ├── DocumentUpload.jsx   # Medical report upload (PDF/image)
+│   │   ├── InputArea.jsx        # Chat input with voice & image
+│   │   ├── Message.jsx          # Message bubble + diagnosis chart + image gallery
+│   │   ├── ProtectedRoute.jsx   # Auth-guarded route wrapper
+│   │   ├── Sidebar.jsx          # Navigation sidebar
+│   │   ├── SymptomChecker.jsx   # MCQ-based symptom assessment
+│   │   ├── Toast.jsx            # Notification toasts
+│   │   ├── TopBar.jsx           # Header with language & theme controls
+│   │   ├── VoiceButton.jsx      # Text-to-speech button
+│   │   └── WelcomeScreen.jsx    # Section-specific landing screens
+│   ├── contexts/
+│   │   ├── AuthContext.jsx      # Supabase auth state management
+│   │   └── LanguageContext.jsx  # i18n language provider
+│   ├── i18n/
+│   │   ├── index.js             # Language registry & translation loader
+│   │   └── locales/             # 11 language JSON files
+│   ├── lib/
+│   │   ├── api.js               # HuggingFace streaming inference
+│   │   ├── export.js            # PDF report generation
+│   │   ├── rag.js               # Cohere embeddings + retrieval
+│   │   ├── search.js            # Tavily + WHO + PubMed orchestrator
+│   │   └── supabase.js          # Supabase client & session management
+│   ├── pages/
+│   │   ├── AuthPage.jsx         # Login / Sign-up page
+│   │   ├── ChatPage.jsx         # Main consultation interface
+│   │   ├── Dashboard.jsx        # Diagnostic hub / home
+│   │   └── ScanAnalysis.jsx     # Medical image analysis
+│   ├── App.jsx                  # Router & layout
+│   ├── config.js                # System prompts & AI configuration
+│   ├── index.css                # Global styles & design system
+│   └── main.jsx                 # React entry point
+├── .env.example                 # Environment variable template
+├── index.html                   # HTML entry point
+├── package.json                 # Dependencies & scripts
+├── tailwind.config.js           # Tailwind CSS configuration
+├── postcss.config.js            # PostCSS configuration
+└── vite.config.js               # Vite build configuration
+```
+
+---
+
+## 🔄 Research Module — Data Flow
+
+```
+User Query
+    │
+    ├─── Tavily AI Search ──→ Web results + images + AI summary
+    │       (priority 1)
+    │
+    ├─── WHO GHO API ──────→ Health statistics + outbreak alerts
+    │       (priority 2)
+    │
+    └─── PubMed E-utils ───→ Peer-reviewed papers + PMIDs
+            (priority 3)
+    │
+    ▼
+Context Injection → AI generates cited, evidence-based response
+    │
+    ▼
+Message Bubble → Text + Image Gallery + Source Citations
+```
+
+---
+
+## 🌍 Supported Languages
+
+| Language | Code | Language | Code |
+|----------|------|----------|------|
+| English | `en` | Kannada | `kn` |
+| हिन्दी (Hindi) | `hi` | മലയാളം (Malayalam) | `ml` |
+| বাংলা (Bengali) | `bn` | मराठी (Marathi) | `mr` |
+| ગુજરાતી (Gujarati) | `gu` | ਪੰਜਾਬੀ (Punjabi) | `pa` |
+| தமிழ் (Tamil) | `ta` | తెలుగు (Telugu) | `te` |
+| اردو (Urdu) | `ur` | | |
+
+---
+
+## 📜 Scripts
 
 ```bash
-npm run build
+npm run dev       # Start development server
+npm run build     # Build for production
+npm run preview   # Preview production build
 ```
 
-## Project Structure
+---
 
-```
-medchat/
-├── package.json
-├── tailwind.config.js
-└── src/
-    ├── App.jsx              # Main application routing
-    ├── config.js            # API keys, model config, system prompts
-    ├── lib/
-    │   ├── api.js           # HuggingFace API integration
-    │   ├── export.js        # PDF Medical Report generator
-    │   └── supabase.js      # Supabase Client & CRUD helpers
-    └── components/
-        ├── Message.jsx      # Chat message rendering with charts
-        ├── SymptomChecker.jsx # Auto-advancing MCQ interface
-        └── ...
-```
+## ⚠️ Disclaimer
 
-## Disclaimer
+> **MedChat AI is for informational and educational purposes only.** It is not a substitute for professional medical advice, diagnosis, or treatment. Always consult a qualified healthcare provider for medical decisions.
 
-This application is for **informational purposes only** and is not a substitute for professional medical advice, diagnosis, or treatment. Always consult a qualified healthcare provider.
+---
 
-## License
+## 📄 License
 
-MIT
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+
+---
+
+<div align="center">
+
+**Built with ❤️ by [Atharv Gujar](https://github.com/Atharv-Gujar)**
+
+</div>

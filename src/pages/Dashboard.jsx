@@ -6,9 +6,12 @@ import Message from '../components/Message';
 import Toast from '../components/Toast';
 import { callAPIStream } from '../lib/api';
 import { exportDiagnosis } from '../lib/export';
+import { shouldSearchWeb, searchWeb } from '../lib/search';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const sectionMeta = {
   general: { icon: '🏥', gradient: 'from-emerald-500/10 to-emerald-500/5', text: 'text-emerald-500', link: 'Access Dashboard', path: '/general', desc: 'Symptom analysis and clinical history evaluation.' },
+  research: { icon: '🌐', gradient: 'from-teal-500/10 to-teal-500/5', text: 'text-teal-500', link: 'Search WHO & PubMed', path: '/research', desc: 'Search latest medical research.' },
   xray: { icon: '📷', gradient: 'from-blue-500/10 to-blue-500/5', text: 'text-blue-500', link: 'Upload Scan', path: '/xray', desc: 'Automated fracture and pathology detection.' },
   mri: { icon: '🔬', gradient: 'from-violet-500/10 to-violet-500/5', text: 'text-violet-500', link: 'View Results', path: '/mri', desc: 'High-resolution soft tissue analysis.' },
   ct: { icon: '🧬', gradient: 'from-cyan-500/10 to-cyan-500/5', text: 'text-cyan-500', link: 'Process Scan', path: '/ct', desc: '3D reconstructed diagnostics imaging.' },
@@ -24,6 +27,7 @@ const prompts = [
 export default function Dashboard({ theme }) {
   const nav = useNavigate();
   const dark = theme === 'dark';
+  const { t, langMeta } = useLanguage();
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [image, setImage] = useState(null);
@@ -42,9 +46,13 @@ export default function Dashboard({ theme }) {
     const img = image;
     setMessages(p => [...p, userMsg]);
     setImage(null); setLoading(true); setStreamingText('');
+    let webSources = [];
+    let searchedWith = [];
     try {
-      const reply = await callAPIStream(text.trim(), img, 'general', messages, (partial) => { setStreamingText(partial); scrollDown(); });
-      setMessages(p => [...p, { role: 'assistant', text: reply, timestamp: new Date().toISOString() }]);
+      // Direct general query, no web search for Dashboard preview
+      let webSearchContext = '';
+      const reply = await callAPIStream(text.trim(), img, 'general', messages, (partial) => { setStreamingText(partial); scrollDown(); }, '', langMeta.name, webSearchContext);
+      setMessages(p => [...p, { role: 'assistant', text: reply, timestamp: new Date().toISOString(), webSources, searchedWith }]);
       setStreamingText('');
     } catch (err) {
       if (err.name === 'AbortError') return;
@@ -54,9 +62,9 @@ export default function Dashboard({ theme }) {
   };
 
   const handleExport = () => {
-    if (!messages.length) { setToast({ show: true, message: 'No diagnosis to export' }); return; }
+    if (!messages.length) { setToast({ show: true, message: t('no_diagnosis') }); return; }
     exportDiagnosis(messages, 'General Consultation');
-    setToast({ show: true, message: 'Report generated!' });
+    setToast({ show: true, message: t('report_generated') });
   };
 
   return (
@@ -69,16 +77,26 @@ export default function Dashboard({ theme }) {
               <div className="relative z-10 max-w-2xl">
                 <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold mb-4 backdrop-blur-md"
                   style={{ background: 'rgba(122,215,198,0.08)', color: '#7ad7c6', border: '1px solid rgba(122,215,198,0.12)' }}>
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" /> CLINICAL INTELLIGENCE PLATFORM
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" /> {t('clinical_intelligence')}
                 </div>
-                <h1 className="text-3xl md:text-4xl font-extrabold text-white mb-3 leading-tight font-display">Welcome to MedChat AI</h1>
+                <h1 className="text-3xl md:text-4xl font-extrabold text-white mb-3 leading-tight font-display">{t('welcome_title')}</h1>
                 <p className="text-sm md:text-base text-slate-300/90 leading-relaxed mb-6 max-w-lg">
-                  Access multi-modal diagnostics powered by advanced neural analysis. Combine imaging data with clinical history for unprecedented precision.
+                  {t('welcome_desc')}
                 </p>
                 <div className="flex flex-wrap gap-3">
                   <button onClick={() => nav('/general')} className="dash-btn-primary font-display">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-4 h-4"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
-                    Start Consultation
+                    {t('start_consultation')}
+                  </button>
+                  <button onClick={() => nav('/research')}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 hover:-translate-y-0.5 backdrop-blur-md"
+                    style={{ background: 'rgba(52,211,153,0.15)', color: '#34d399', border: '1px solid rgba(52,211,153,0.3)' }}>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="2" y1="12" x2="22" y2="12" />
+                      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                    </svg>
+                    {t('medical_research') || 'Medical Research'}
                   </button>
                 </div>
               </div>
@@ -91,10 +109,10 @@ export default function Dashboard({ theme }) {
                 return (
                   <button key={key} onClick={() => nav(m.path)} className="feature-card group">
                     <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl mb-4 bg-gradient-to-br ${m.gradient}`}>{m.icon}</div>
-                    <h3 className="text-sm font-bold mb-1.5 font-display" style={{ color: 'var(--on-surface)' }}>{s.name}</h3>
-                    <p className="text-xs leading-relaxed mb-4" style={{ color: 'var(--on-surface-variant)' }}>{m.desc}</p>
+                    <h3 className="text-sm font-bold mb-1.5 font-display" style={{ color: 'var(--on-surface)' }}>{t({general:'general_medical',research:'medical_research',xray:'xray_analysis',mri:'mri_scan',ct:'ct_scan'}[key])}</h3>
+                    <p className="text-xs leading-relaxed mb-4" style={{ color: 'var(--on-surface-variant)' }}>{t({general:'symptom_analysis',research:'research_desc',xray:'fracture_detection',mri:'soft_tissue',ct:'3d_diagnostics'}[key])}</p>
                     <span className={`text-xs font-semibold flex items-center gap-1 ${m.text}`}>
-                      {m.link} <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3 h-3 transition-transform group-hover:translate-x-1"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                      {t({general:'access_dashboard',research:'search_medical_data',xray:'upload_scan',mri:'view_results',ct:'process_scan'}[key])} <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3 h-3 transition-transform group-hover:translate-x-1"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
                     </span>
                   </button>
                 );
@@ -103,9 +121,9 @@ export default function Dashboard({ theme }) {
 
             {/* Suggested Prompts */}
             <div className="px-4 mt-6 mb-4">
-              <h3 className="text-[0.65rem] font-bold uppercase tracking-[0.15em] mb-3 px-1" style={{ color: 'var(--outline)' }}>Suggested Clinical Prompts</h3>
+              <h3 className="text-[0.65rem] font-bold uppercase tracking-[0.15em] mb-3 px-1" style={{ color: 'var(--outline)' }}>{t('suggested_prompts')}</h3>
               <div className="flex flex-wrap gap-2">
-                {prompts.map((p, i) => (
+                {[t('prompt_cough'), t('prompt_imaging'), t('prompt_xray'), t('prompt_mri_ct')].map((p, i) => (
                   <button key={i} onClick={() => sendMessage(p)} className="prompt-pill">{p}</button>
                 ))}
               </div>
@@ -115,14 +133,14 @@ export default function Dashboard({ theme }) {
           <div className="p-4 md:p-6 flex flex-col gap-5">
             {/* Export bar */}
             <div className="flex items-center justify-between px-4 py-3 rounded-2xl" style={{ background: dark ? 'rgba(122,215,198,0.04)' : 'rgba(0,121,107,0.04)' }}>
-              <span className="text-xs font-semibold" style={{ color: 'var(--primary)' }}>Consultation Active — {messages.length} messages</span>
+              <span className="text-xs font-semibold" style={{ color: 'var(--primary)' }}>{t('consultation_active')} — {messages.length} {t('messages')}</span>
               <button onClick={handleExport} className="px-4 py-2 rounded-xl text-white text-xs font-bold transition-all duration-300 hover:-translate-y-0.5 flex items-center gap-1.5"
                 style={{ background: 'linear-gradient(135deg, #7ad7c6, #006156)' }}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                Export Diagnosis
+                {t('export_diagnosis')}
               </button>
             </div>
-            {messages.map((msg, i) => <Message key={i} msg={msg} theme={theme} onCopy={() => setToast({ show: true, message: 'Copied!' })} />)}
+            {messages.map((msg, i) => <Message key={i} msg={msg} theme={theme} onCopy={() => setToast({ show: true, message: t('copied') })} />)}
             {loading && streamingText && <Message msg={{ role: 'assistant', text: streamingText }} theme={theme} onCopy={() => {}} />}
             {loading && !streamingText && (
               <div className="flex gap-3 max-w-[800px] w-full mx-auto">
@@ -138,7 +156,7 @@ export default function Dashboard({ theme }) {
 
       {messages.length === 0 && (
         <div className="text-center py-1.5 text-[10px] font-semibold uppercase tracking-[0.2em]" style={{ color: 'var(--outline)' }}>
-          AI-generated diagnosis should be verified by a board-certified professional.
+          {t('ai_disclaimer_bottom')}
         </div>
       )}
 

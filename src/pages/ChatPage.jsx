@@ -4,9 +4,14 @@ import InputArea from '../components/InputArea';
 import Message from '../components/Message';
 import SymptomChecker from '../components/SymptomChecker';
 import Toast from '../components/Toast';
+import DocumentUpload from '../components/DocumentUpload';
 import { callAPIStream } from '../lib/api';
 import { exportDiagnosis } from '../lib/export';
 import { createChatSession, saveMessage, isSupabaseConfigured } from '../lib/supabase';
+import { getUserDocumentsContext, listUserDocuments } from '../lib/rag';
+import { shouldSearchWeb, searchWeb } from '../lib/search';
+import { useAuth } from '../contexts/AuthContext';
+import { useLanguage } from '../contexts/LanguageContext';
 
 // Robust MCQ parser — handles raw JSON, markdown fenced, partial formats
 function parseMCQ(text) {
@@ -24,7 +29,15 @@ function parseMCQ(text) {
     try {
       const parsed = strategy();
       if (parsed && parsed.question && parsed.options && Array.isArray(parsed.options) && parsed.options.length >= 2) {
-        return { thinking: parsed.thinking || 'Analyzing symptoms', question: parsed.question, options: parsed.options.slice(0, 4), step: parsed.step || 1, totalSteps: parsed.totalSteps || 4 };
+        return {
+          thinking: parsed.thinking || 'Analyzing symptoms',
+          question: parsed.question,
+          options: parsed.options.slice(0, 4),
+          step: parsed.step || 1,
+          totalSteps: parsed.totalSteps || 4,
+          retry: parsed.retry || false,
+          feedback: parsed.feedback || '',
+        };
       }
     } catch (e) { /* try next */ }
   }
@@ -44,13 +57,34 @@ export default function ChatPage({ sectionKey, theme }) {
   const [streamingText, setStreamingText] = useState('');
   const [toast, setToast] = useState({ show: false, message: '' });
   const [mcqData, setMcqData] = useState(null);
+  const [mcqRetryInfo, setMcqRetryInfo] = useState(null); // { previousAnswers: [], attempts: 0 }
+  const [showDocUpload, setShowDocUpload] = useState(false);
+  const [hasDocuments, setHasDocuments] = useState(false);
+  const [usedRAG, setUsedRAG] = useState(false);
+  const [webSearchEnabled, setWebSearchEnabled] = useState(true);
+  const [researchSources, setResearchSources] = useState({ searchapi: true, who: true, pubmed: true });
   const chatRef = useRef(null);
   const sessionIdRef = useRef(null);
   const sec = SECTIONS[sectionKey];
+  const isResearch = sectionKey === 'research';
+  const anySourceEnabled = researchSources.searchapi || researchSources.who || researchSources.pubmed;
+
+  const toggleSource = (key) => {
+    setResearchSources(prev => ({ ...prev, [key]: !prev[key] }));
+  };
   const dark = theme === 'dark';
+  const { user } = useAuth();
+  const { t, langMeta } = useLanguage();
 
   // Reset session when section changes
   useEffect(() => { sessionIdRef.current = null; }, [sectionKey]);
+
+  // Check if user has uploaded documents
+  useEffect(() => {
+    if (user) {
+      listUserDocuments(user.id).then(docs => setHasDocuments(docs.length > 0)).catch(() => {});
+    }
+  }, [user, showDocUpload]);
 
   const scrollDown = useCallback(() => {
     requestAnimationFrame(() => { if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight; });
@@ -68,48 +102,129 @@ export default function ChatPage({ sectionKey, theme }) {
 
     // Create Supabase session on first message
     if (!sessionIdRef.current && isSupabaseConfigured()) {
-      const session = await createChatSession(sectionKey, text.trim().slice(0, 80));
+      const session = await createChatSession(sectionKey, text.trim().slice(0, 80), user?.id);
       if (session) sessionIdRef.current = session.id;
     }
 
     const userMsg = { role: 'user', text: text.trim(), image: image?.base64 || null, timestamp: new Date().toISOString(), isMcqAnswer: isFromMCQ };
     const img = image;
     setMessages(p => [...p, userMsg]);
-    setImage(null); setLoading(true); setStreamingText('');
+    setImage(null); setLoading(true); setStreamingText(''); setUsedRAG(false);
+    let webSources = [];
+    let searchedWith = [];
+    let webImages = [];
 
     // Persist user message
     persistMessage('user', text.trim(), { isMcqAnswer: isFromMCQ });
 
     try {
-      const historyForAPI = messages.map(m => ({ role: m.role, text: m.rawText || m.text, image: m.image }));
-      const reply = await callAPIStream(text.trim(), img, sectionKey, historyForAPI, (partial) => { setStreamingText(partial); scrollDown(); });
+      // Fetch full document context (direct injection — no chunking/embedding)
+      // Skip for research section — research doesn't use uploaded reports
+      let ragContext = '';
+      if (!isResearch && user && hasDocuments) {
+        try {
+          ragContext = await getUserDocumentsContext(user.id);
+          if (ragContext) setUsedRAG(true);
+        } catch (ragErr) {
+          console.error('Document context fetch failed:', ragErr);
+        }
+      }
 
-      const mcq = parseMCQ(reply);
+      // Web search for latest medical info
+      // Research section: ALWAYS search. General section: NO web search.
+      let webSearchContext = '';
+      const shouldSearch = isResearch;
+      if (shouldSearch && anySourceEnabled) {
+        try {
+          const activeNames = [
+            researchSources.searchapi && t('source_searchapi'),
+            researchSources.who && t('source_who'),
+            researchSources.pubmed && t('source_pubmed'),
+          ].filter(Boolean).join(', ');
+          setStreamingText(`*${t('searching_sources')}: ${activeNames}...*`);
+          const webResults = await searchWeb(text.trim(), researchSources);
+          if (webResults.context) {
+            webSearchContext = webResults.context;
+            webSources = webResults.sources;
+            searchedWith = webResults.searchedWith;
+            webImages = webResults.images || [];
+          }
+        } catch (searchErr) {
+          console.error('Web search failed:', searchErr);
+        }
+        setStreamingText('');
+      }
+
+      const historyForAPI = messages.map(m => ({ role: m.role, text: m.rawText || m.text, image: m.image }));
+      const reply = await callAPIStream(text.trim(), img, sectionKey, historyForAPI, (partial) => { setStreamingText(partial); scrollDown(); }, ragContext, langMeta.name, webSearchContext);
+
+      const mcq = (isResearch || webSearchContext) ? null : parseMCQ(reply);
       if (mcq) {
-        setMcqData(mcq);
-        setMessages(p => [...p, { role: 'assistant', text: '', rawText: reply, isMcq: true, mcqData: mcq, timestamp: new Date().toISOString() }]);
+        // Check if this is a retry response
+        if (mcq.retry && mcqRetryInfo) {
+          setMcqData(mcq);
+          setMcqRetryInfo(prev => ({
+            ...prev,
+            attempts: (prev?.attempts || 0) + 1,
+            feedback: mcq.feedback,
+          }));
+        } else {
+          setMcqData(mcq);
+          setMcqRetryInfo({ previousAnswers: [], attempts: 0, feedback: '' });
+        }
+        setMessages(p => [...p, {
+          role: 'assistant', text: '', rawText: reply, isMcq: true, mcqData: mcq,
+          timestamp: new Date().toISOString(), usedRAG: !!ragContext,
+          webSources, searchedWith, webImages,
+        }]);
         persistMessage('assistant', reply, { type: 'mcq', step: mcq.step });
       } else {
         setMcqData(null);
-        setMessages(p => [...p, { role: 'assistant', text: reply, rawText: reply, timestamp: new Date().toISOString() }]);
-        persistMessage('assistant', reply, { type: reply.includes('Diagnostic Report') ? 'report' : 'chat' });
+        setMcqRetryInfo(null);
+        setMessages(p => [...p, {
+          role: 'assistant', text: reply, rawText: reply,
+          timestamp: new Date().toISOString(), usedRAG: !!ragContext,
+          webSources, searchedWith, webImages,
+        }]);
+        persistMessage('assistant', reply, {
+          type: reply.includes('Diagnostic Report') ? 'report' : 'chat',
+          usedRAG: !!ragContext,
+          webSources: webSources.length,
+        });
       }
       setStreamingText('');
     } catch (err) {
       if (err.name === 'AbortError') return;
       setMcqData(null);
+      setMcqRetryInfo(null);
       setMessages(p => [...p, { role: 'assistant', text: `**Error**: ${err.message}`, rawText: `Error: ${err.message}`, timestamp: new Date().toISOString() }]);
       setStreamingText('');
     } finally { setLoading(false); }
   };
 
-  const handleMCQAnswer = (answer) => { setMcqData(null); sendMessage(answer, true); };
-  const clearChat = () => { setMessages([]); setMcqData(null); sessionIdRef.current = null; window.speechSynthesis?.cancel(); };
+  const handleMCQAnswer = (answer, isCustom = false) => {
+    // Track the answer for retry purposes
+    if (mcqRetryInfo) {
+      setMcqRetryInfo(prev => ({
+        ...prev,
+        previousAnswers: [...(prev?.previousAnswers || []), answer],
+      }));
+    }
+    setMcqData(null);
+    const prefix = isCustom ? `My answer: ${answer}` : answer;
+    sendMessage(prefix, true);
+  };
+
+  const clearChat = () => {
+    setMessages([]); setMcqData(null); setMcqRetryInfo(null);
+    sessionIdRef.current = null; window.speechSynthesis?.cancel();
+  };
+
   const handleExport = () => {
-    if (!messages.length) { setToast({ show: true, message: 'No diagnosis to export' }); return; }
+    if (!messages.length) { setToast({ show: true, message: t('no_diagnosis') }); return; }
     const exportableMessages = messages.filter(m => m.text && !m.isMcq);
     exportDiagnosis(exportableMessages, sec.name);
-    setToast({ show: true, message: 'Report generated!' });
+    setToast({ show: true, message: t('report_generated') });
   };
 
   // Only show non-MCQ messages
@@ -123,18 +238,74 @@ export default function ChatPage({ sectionKey, theme }) {
       {/* Header */}
       <div className="px-6 py-4 flex items-center justify-between" style={{ background: dark ? '#131b2e' : '#ffffff' }}>
         <div>
-          <h2 className="text-lg font-bold font-display" style={{ color: 'var(--on-surface)' }}>{sec.name}</h2>
-          <p className="text-xs" style={{ color: 'var(--outline)' }}>{sec.desc}</p>
+          <h2 className="text-lg font-bold font-display" style={{ color: 'var(--on-surface)' }}>{t({general:'general_medical',research:'medical_research',xray:'xray_analysis',mri:'mri_scan',ct:'ct_scan'}[sectionKey])}</h2>
+          <p className="text-xs" style={{ color: 'var(--outline)' }}>{t({general:'general_desc',research:'research_desc',xray:'xray_desc',mri:'mri_desc',ct:'ct_desc'}[sectionKey])}</p>
         </div>
         <div className="flex items-center gap-2">
+          {/* Research section: Source toggle chips */}
+          {isResearch && (
+            <div className="flex items-center gap-1.5">
+              <button onClick={() => toggleSource('searchapi')}
+                className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all duration-200 flex items-center gap-1 cursor-pointer border"
+                style={{
+                  background: researchSources.searchapi ? (dark ? 'rgba(245,158,11,0.15)' : 'rgba(245,158,11,0.1)') : 'transparent',
+                  color: researchSources.searchapi ? '#fbbf24' : 'var(--outline)',
+                  borderColor: researchSources.searchapi ? 'rgba(245,158,11,0.3)' : 'var(--outline-variant)',
+                  opacity: researchSources.searchapi ? 1 : 0.5,
+                }}>
+                {researchSources.searchapi && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />}
+                {t('source_searchapi')}
+              </button>
+              <button onClick={() => toggleSource('who')}
+                className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all duration-200 flex items-center gap-1 cursor-pointer border"
+                style={{
+                  background: researchSources.who ? (dark ? 'rgba(16,185,129,0.15)' : 'rgba(16,185,129,0.1)') : 'transparent',
+                  color: researchSources.who ? '#34d399' : 'var(--outline)',
+                  borderColor: researchSources.who ? 'rgba(16,185,129,0.3)' : 'var(--outline-variant)',
+                  opacity: researchSources.who ? 1 : 0.5,
+                }}>
+                {researchSources.who && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
+                {t('source_who')}
+              </button>
+              <button onClick={() => toggleSource('pubmed')}
+                className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all duration-200 flex items-center gap-1 cursor-pointer border"
+                style={{
+                  background: researchSources.pubmed ? (dark ? 'rgba(139,92,246,0.15)' : 'rgba(139,92,246,0.1)') : 'transparent',
+                  color: researchSources.pubmed ? '#a78bfa' : 'var(--outline)',
+                  borderColor: researchSources.pubmed ? 'rgba(139,92,246,0.3)' : 'var(--outline-variant)',
+                  opacity: researchSources.pubmed ? 1 : 0.5,
+                }}>
+                {researchSources.pubmed && <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse" />}
+                {t('source_pubmed')}
+              </button>
+            </div>
+          )}
+
+          {/* General section: Upload Reports Button */}
+          {!isResearch && (
+            <button onClick={() => setShowDocUpload(true)}
+              className="px-3 py-2 rounded-xl text-xs font-bold transition-all duration-300 hover:-translate-y-0.5 flex items-center gap-1.5 relative"
+              style={{ background: dark ? 'rgba(122,215,198,0.08)' : 'rgba(0,121,107,0.06)', color: 'var(--primary)' }}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="12" y1="18" x2="12" y2="12" /><line x1="9" y1="15" x2="15" y2="15" />
+              </svg>
+              {t('upload_reports')}
+              {hasDocuments && (
+                <span className="w-2 h-2 rounded-full bg-emerald-500 absolute -top-0.5 -right-0.5 animate-pulse" />
+              )}
+            </button>
+          )}
+
           {messages.length > 0 && (
             <button onClick={handleExport} className="px-4 py-2 rounded-xl text-white text-xs font-bold transition-all duration-300 hover:-translate-y-0.5 flex items-center gap-1.5"
               style={{ background: 'linear-gradient(135deg, #7ad7c6, #006156)' }}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              Export Diagnosis
+              {t('export_diagnosis')}
             </button>
           )}
-          <button onClick={clearChat} className="px-3 py-1.5 rounded-xl text-xs font-semibold hover:opacity-70" style={{ color: 'var(--outline)' }}>Clear</button>
+          <button onClick={clearChat} className="px-3 py-1.5 rounded-xl text-xs font-semibold hover:opacity-70" style={{ color: 'var(--outline)' }}>{t('clear')}</button>
         </div>
       </div>
 
@@ -142,26 +313,64 @@ export default function ChatPage({ sectionKey, theme }) {
       <div ref={chatRef} className="flex-1 overflow-y-auto p-4 md:p-6 flex flex-col gap-5 scroll-smooth" style={{ background: 'var(--bg)' }}>
         {messages.length === 0 && !loading && (
           <div className="flex-1 flex flex-col items-center justify-center text-center px-4">
-            <div className="w-16 h-16 rounded-3xl flex items-center justify-center mb-4" style={{ background: dark ? 'rgba(122,215,198,0.06)' : 'rgba(0,121,107,0.06)', color: 'var(--primary)' }}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-8 h-8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
+            <div className="w-16 h-16 rounded-3xl flex items-center justify-center mb-4" style={{ background: isResearch ? (dark ? 'rgba(16,185,129,0.08)' : 'rgba(16,185,129,0.06)') : (dark ? 'rgba(122,215,198,0.06)' : 'rgba(0,121,107,0.06)'), color: isResearch ? '#34d399' : 'var(--primary)' }}>
+              {isResearch ? (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-8 h-8"><circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" /></svg>
+              ) : (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-8 h-8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
+              )}
             </div>
             <h3 className="text-lg font-bold mb-1 font-display" style={{ color: 'var(--on-surface)' }}>{sec.name}</h3>
-            <p className="text-sm max-w-md mb-6" style={{ color: 'var(--outline)' }}>Describe your symptoms and I'll guide you through a quick assessment.</p>
+            <p className="text-sm max-w-md mb-4" style={{ color: 'var(--outline)' }}>
+              {isResearch ? t('research_empty_hint') : t('describe_symptoms')}
+            </p>
+
+            {/* Data source badges for research — reflect selected sources */}
+            {isResearch && (
+              <div className="flex items-center gap-2 mb-5 flex-wrap justify-center">
+                {researchSources.searchapi && <span className="px-3 py-1 rounded-full text-[10px] font-bold" style={{ background: 'rgba(245,158,11,0.1)', color: '#fbbf24' }}>{t('source_searchapi')}</span>}
+                {researchSources.who && <span className="px-3 py-1 rounded-full text-[10px] font-bold" style={{ background: 'rgba(16,185,129,0.1)', color: '#34d399' }}>WHO</span>}
+                {researchSources.pubmed && <span className="px-3 py-1 rounded-full text-[10px] font-bold" style={{ background: 'rgba(139,92,246,0.1)', color: '#a78bfa' }}>PubMed</span>}
+                {!anySourceEnabled && <span className="px-3 py-1 rounded-full text-[10px] font-bold" style={{ background: 'rgba(239,68,68,0.1)', color: '#f87171' }}>{t('no_source_selected')}</span>}
+              </div>
+            )}
+
+            {/* RAG indicator — only for general */}
+            {!isResearch && hasDocuments && (
+              <div className="flex items-center gap-2 px-4 py-2 rounded-full mb-4 animate-fadeIn"
+                style={{ background: dark ? 'rgba(122,215,198,0.06)' : 'rgba(0,121,107,0.04)', color: 'var(--primary)' }}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
+                </svg>
+                <span className="text-xs font-semibold">{t('reports_loaded')}</span>
+              </div>
+            )}
+
             <div className="flex flex-wrap gap-2 justify-center max-w-lg">
-              {['I have a headache', 'My stomach hurts', 'I feel dizzy and tired', 'I have a sore throat'].map((p, i) => (
-                <button key={i} onClick={() => sendMessage(p)} className="prompt-pill">{p}</button>
-              ))}
+              {isResearch
+                ? [t('research_prompt_1'), t('research_prompt_2'), t('research_prompt_3'), t('research_prompt_4')].map((p, i) => (
+                    <button key={i} onClick={() => sendMessage(p)} className="prompt-pill">{p}</button>
+                  ))
+                : [t('chat_prompt_1'), t('chat_prompt_2'), t('chat_prompt_3'), t('chat_prompt_4')].map((p, i) => (
+                    <button key={i} onClick={() => sendMessage(p)} className="prompt-pill">{p}</button>
+                  ))
+              }
             </div>
           </div>
         )}
 
         {displayMessages.map((msg, i) => (
-          <Message key={i} msg={msg} theme={theme} onCopy={() => setToast({ show: true, message: 'Copied!' })} />
+          <Message key={i} msg={msg} theme={theme} onCopy={() => setToast({ show: true, message: t('copied') })} />
         ))}
 
         {/* MCQ UI */}
         {mcqData && !loading && (
-          <SymptomChecker mcqData={mcqData} onAnswer={handleMCQAnswer} theme={theme} />
+          <SymptomChecker
+            mcqData={mcqData}
+            onAnswer={handleMCQAnswer}
+            theme={theme}
+            retryInfo={mcqRetryInfo}
+          />
         )}
 
         {/* Loading indicator — HIDE if streaming looks like MCQ */}
@@ -175,7 +384,7 @@ export default function ChatPage({ sectionKey, theme }) {
             <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-xs font-bold shrink-0" style={{ background: 'linear-gradient(135deg, #7ad7c6, #006156)' }}>AI</div>
             <div className="px-5 py-4 rounded-2xl flex items-center gap-3" style={{ background: 'var(--surface-container)' }}>
               <div className="w-4 h-4 border-2 border-t-[var(--primary)] rounded-full animate-spin" style={{ borderColor: 'var(--outline-variant)', borderTopColor: 'var(--primary)' }} />
-              <span className="text-sm font-medium" style={{ color: 'var(--on-surface-variant)' }}>Preparing assessment question...</span>
+              <span className="text-sm font-medium" style={{ color: 'var(--on-surface-variant)' }}>{t('preparing_question')}</span>
             </div>
           </div>
         )}
@@ -195,6 +404,11 @@ export default function ChatPage({ sectionKey, theme }) {
         <InputArea theme={theme} section={sectionKey} image={image} setImage={setImage} onSend={sendMessage} loading={loading} />
       )}
       <Toast message={toast.message} show={toast.show} onClose={() => setToast({ show: false, message: '' })} theme={theme} />
+
+      {/* Document Upload Modal */}
+      {showDocUpload && (
+        <DocumentUpload theme={theme} onClose={() => setShowDocUpload(false)} />
+      )}
     </div>
   );
 }

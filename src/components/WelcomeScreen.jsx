@@ -1,4 +1,5 @@
 import { SECTIONS, QUICK_PROMPTS } from '../config';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const sectionIcons = {
   general: (
@@ -37,21 +38,22 @@ const iconBgColors = {
 export default function WelcomeScreen({ section, setSection, theme, onPrompt }) {
   const dark = theme === 'dark';
   const sec = SECTIONS[section];
+  const { t } = useLanguage();
 
   return (
     <div className="flex-1 flex flex-col items-center justify-center px-6 py-10 overflow-y-auto animate-fade-in-up">
       <div className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full mb-6 text-[0.72rem] font-semibold tracking-wide uppercase
         ${dark ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-emerald-50 text-emerald-600 border border-emerald-200'}`}>
         <span className="w-2 h-2 rounded-full bg-emerald-500 animate-status-pulse" />
-        AI Core Active
+        {t('ai_core_active')}
       </div>
 
       <div className="text-center mb-8">
         <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight mb-3">
-          Welcome to <span className="bg-gradient-to-r from-brand-500 to-emerald-500 bg-clip-text text-transparent">MedChat AI</span>
+          {t('welcome_title').split('MedChat AI')[0]}<span className="bg-gradient-to-r from-brand-500 to-emerald-500 bg-clip-text text-transparent">MedChat AI</span>
         </h2>
         <p className={`text-sm max-w-lg mx-auto leading-relaxed ${dark ? 'text-slate-400' : 'text-slate-500'}`}>
-          Advanced clinical intelligence for multi-modal diagnostics. Analyze scans, evaluate patient symptoms, and receive AI-driven consultation insights in seconds.
+          {t('welcome_subtitle')}
         </p>
       </div>
 
@@ -60,13 +62,13 @@ export default function WelcomeScreen({ section, setSection, theme, onPrompt }) 
           onClick={() => onPrompt('I would like to start a consultation')}
           className="px-6 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-brand-500 to-brand-600 text-white hover:shadow-lg hover:shadow-brand-500/25 hover:-translate-y-0.5 transition-all"
         >
-          Start Consultation
+          {t('start_consultation')}
         </button>
         <button
           className={`px-6 py-2.5 rounded-xl text-sm font-semibold border transition-all hover:-translate-y-0.5
             ${dark ? 'border-white/[0.1] text-slate-300 hover:bg-white/[0.04]' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}
         >
-          View Recent Reports
+          {t('view_recent_reports')}
         </button>
       </div>
 
@@ -85,8 +87,8 @@ export default function WelcomeScreen({ section, setSection, theme, onPrompt }) 
             <div className={`w-12 h-12 mx-auto mb-3 rounded-xl flex items-center justify-center ${iconBgColors[key]}`}>
               {sectionIcons[key]}
             </div>
-            <h3 className={`text-sm font-bold mb-1 ${dark ? 'text-white' : 'text-slate-800'}`}>{s.name}</h3>
-            <p className={`text-[0.72rem] leading-relaxed ${dark ? 'text-slate-500' : 'text-slate-400'}`}>{s.desc}</p>
+            <h3 className={`text-sm font-bold mb-1 ${dark ? 'text-white' : 'text-slate-800'}`}>{t({general:'general_medical',xray:'xray_analysis',mri:'mri_scan',ct:'ct_scan'}[key])}</h3>
+            <p className={`text-[0.72rem] leading-relaxed ${dark ? 'text-slate-500' : 'text-slate-400'}`}>{t({general:'general_desc',xray:'xray_desc',mri:'mri_desc',ct:'ct_desc'}[key])}</p>
           </button>
         ))}
       </div>
@@ -96,10 +98,10 @@ export default function WelcomeScreen({ section, setSection, theme, onPrompt }) 
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
           </svg>
-          Try Asking
+          {t('try_asking')}
         </div>
         <div className="flex flex-wrap gap-2">
-          {QUICK_PROMPTS.map((p) => (
+          {[t('quick_prompt_1'), t('quick_prompt_2'), t('quick_prompt_3'), t('quick_prompt_4')].map((p) => (
             <button
               key={p}
               onClick={() => onPrompt(p)}

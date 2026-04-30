@@ -19,15 +19,97 @@ export async function extractTextFromPDF(file) {
   return fullText.trim();
 }
 
-// ─── Image Text Extraction ──────────────────────────────
+// ─── Image Text Extraction (Vision AI) ──────────────────
+// Uses the same multimodal LLM to read handwritten prescriptions,
+// lab reports, and medical documents from images.
 export async function extractTextFromImage(file) {
-  return new Promise((resolve) => {
+  const base64 = await new Promise((resolve) => {
     const reader = new FileReader();
-    reader.onload = () => {
-      resolve(`[Medical Image: ${file.name}] — Image uploaded for visual analysis.`);
-    };
+    reader.onload = () => resolve(reader.result);
     reader.readAsDataURL(file);
   });
+
+  // Use the Vision AI model to extract text from the image
+  const { API_KEY, API_URL, MODEL } = await import('../config');
+
+  const extractionPrompt = `You are a medical document OCR specialist. Extract ALL text from this medical document image.
+
+RULES:
+1. Extract EVERY piece of text you can read — printed AND handwritten.
+2. For handwritten text that is difficult to read, make your best interpretation and mark uncertain words with [?] after them.
+3. Preserve the document structure: headers, patient info, vitals, prescriptions, notes.
+4. For prescriptions, extract: drug name, dosage, frequency, duration.
+5. For vitals, extract: BP, pulse, SpO2, temperature, weight, height, RBS, etc.
+6. If you see a doctor's signature area, note the doctor's name and credentials if visible.
+7. Output the extracted text in a clean, structured format.
+8. Do NOT add any analysis or interpretation — just extract the raw text content.
+9. If parts are completely illegible, mark them as [illegible].
+
+Format your output as:
+--- DOCUMENT HEADER ---
+(clinic name, address, phone, etc.)
+
+--- PATIENT INFORMATION ---
+Name: ...
+Age/Sex: ...
+Date: ...
+Registration/ID: ...
+
+--- VITALS ---
+(all measured values)
+
+--- CLINICAL NOTES ---
+(chief complaints, observations)
+
+--- PRESCRIPTION ---
+1. Drug name — dose — frequency — duration
+2. ...
+
+--- ADDITIONAL NOTES ---
+(any other text on the document)`;
+
+  try {
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        messages: [
+          { role: 'system', content: extractionPrompt },
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: 'Extract all text from this medical document image. Read both printed and handwritten text carefully.' },
+              { type: 'image_url', image_url: { url: base64 } },
+            ],
+          },
+        ],
+        max_tokens: 2048,
+        temperature: 0.1, // Low temperature for accurate extraction
+        stream: false,
+      }),
+    });
+
+    if (!response.ok) {
+      console.warn('Vision API extraction failed, falling back to placeholder');
+      return `[Medical Image: ${file.name}] — Image uploaded. Handwritten content could not be auto-extracted. The AI will analyze this image visually during chat.`;
+    }
+
+    const data = await response.json();
+    const extractedText = data.choices?.[0]?.message?.content;
+
+    if (extractedText && extractedText.trim().length > 50) {
+      return `[Extracted from image: ${file.name}]\n\n${extractedText.trim()}`;
+    }
+
+    return `[Medical Image: ${file.name}] — Image uploaded but text extraction yielded minimal results. The AI will analyze this image visually during chat.`;
+  } catch (err) {
+    console.error('Image text extraction error:', err);
+    return `[Medical Image: ${file.name}] — Image uploaded. Auto-extraction failed (${err.message}). The AI will analyze this image visually during chat.`;
+  }
 }
 
 // ─── Upload & Store Document ─────────────────────────────

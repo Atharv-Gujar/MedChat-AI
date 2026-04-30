@@ -3,6 +3,27 @@ import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useNavigate } from 'react-router-dom';
 
+/* ── Shared input wrapper — defined outside to avoid re-mount on every keystroke ── */
+function InputGroup({ icon, children, dark }) {
+  return (
+    <div className="auth-input-group" style={{
+      display: 'flex', alignItems: 'center', gap: '12px',
+      background: dark ? 'rgba(255,255,255,0.04)' : 'var(--surface-container)',
+      border: `1.5px solid ${dark ? 'rgba(255,255,255,0.08)' : 'var(--outline-variant)'}`,
+      borderRadius: '16px', padding: '0 16px', transition: 'all 0.3s ease',
+    }}>
+      <span style={{ color: 'var(--outline)', flexShrink: 0, display: 'flex' }}>{icon}</span>
+      {children}
+    </div>
+  );
+}
+
+const inputStyle = {
+  background: 'transparent', border: 'none', outline: 'none', width: '100%',
+  padding: '14px 0', fontSize: '0.9rem', color: 'var(--on-surface)',
+  fontFamily: 'Inter, sans-serif',
+};
+
 export default function AuthPage({ theme }) {
   const dark = theme === 'dark';
   const { t } = useLanguage();
@@ -37,25 +58,6 @@ export default function AuthPage({ theme }) {
     } catch (err) {
       setError(err.message || 'An error occurred');
     } finally { setLoading(false); }
-  };
-
-  /* ── Shared input wrapper for the icon-left pattern ─── */
-  const InputGroup = ({ icon, children }) => (
-    <div className="auth-input-group" style={{
-      display: 'flex', alignItems: 'center', gap: '12px',
-      background: dark ? 'rgba(255,255,255,0.04)' : 'var(--surface-container)',
-      border: `1.5px solid ${dark ? 'rgba(255,255,255,0.08)' : 'var(--outline-variant)'}`,
-      borderRadius: '16px', padding: '0 16px', transition: 'all 0.3s ease',
-    }}>
-      <span style={{ color: 'var(--outline)', flexShrink: 0, display: 'flex' }}>{icon}</span>
-      {children}
-    </div>
-  );
-
-  const inputStyle = {
-    background: 'transparent', border: 'none', outline: 'none', width: '100%',
-    padding: '14px 0', fontSize: '0.9rem', color: 'var(--on-surface)',
-    fontFamily: 'Inter, sans-serif',
   };
 
   return (
@@ -188,7 +190,7 @@ export default function AuthPage({ theme }) {
             {tab === 'signup' && (
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-widest mb-2.5 font-display" style={{ color: 'var(--outline)' }}>{t('full_name')}</label>
-                <InputGroup icon={
+                <InputGroup dark={dark} icon={
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-[18px] h-[18px]">
                     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
                   </svg>
@@ -202,7 +204,7 @@ export default function AuthPage({ theme }) {
             {/* Email */}
             <div>
               <label className="block text-[11px] font-bold uppercase tracking-widest mb-2.5 font-display" style={{ color: 'var(--outline)' }}>{t('email_address')}</label>
-              <InputGroup icon={
+              <InputGroup dark={dark} icon={
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-[18px] h-[18px]">
                   <rect x="2" y="4" width="20" height="16" rx="2" /><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
                 </svg>
@@ -216,7 +218,7 @@ export default function AuthPage({ theme }) {
             {tab !== 'reset' && (
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-widest mb-2.5 font-display" style={{ color: 'var(--outline)' }}>{t('password')}</label>
-                <InputGroup icon={
+                <InputGroup dark={dark} icon={
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-[18px] h-[18px]">
                     <rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />
                   </svg>

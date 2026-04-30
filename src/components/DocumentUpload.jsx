@@ -49,10 +49,15 @@ export default function DocumentUpload({ theme, onClose }) {
         setUploadProgress(`${t('extracting')} ${file.name}...`);
         await new Promise(r => setTimeout(r, 100)); // Let UI update
 
-        setUploadProgress(`${t('generating_embeddings')} ${file.name}...`);
+        // Show specific progress for images (Vision AI takes longer)
+        if (file.type.startsWith('image/')) {
+          setUploadProgress(`Reading handwriting with AI — ${file.name}...`);
+        } else {
+          setUploadProgress(`${t('generating_embeddings')} ${file.name}...`);
+        }
         const result = await uploadAndIndexDocument(file, user.id);
 
-        setUploadProgress(t('indexed_chunks', { count: result.chunks, name: file.name }));
+        setUploadProgress(`Done — ${result.textLength} characters extracted from ${file.name}`);
       } catch (err) {
         setError(t('failed_process', { name: file.name, error: err.message }));
       }

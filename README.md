@@ -60,6 +60,8 @@
 - **Dark/Light mode** with smooth transitions
 - **Responsive design** — works on mobile, tablet, and desktop
 
+### History
+
 ---
 
 ## 🖼️ Screenshots

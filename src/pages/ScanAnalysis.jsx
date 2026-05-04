@@ -4,6 +4,7 @@ import { exportDiagnosis } from '../lib/export';
 import Message from '../components/Message';
 import Toast from '../components/Toast';
 import { createChatSession, saveMessage, isSupabaseConfigured } from '../lib/supabase';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const scanConfig = {
   xray: {
@@ -47,6 +48,7 @@ const scanConfig = {
 export default function ScanAnalysis({ sectionKey, theme }) {
   const cfg = scanConfig[sectionKey];
   const dark = theme === 'dark';
+  const { t, langMeta } = useLanguage();
   const [image, setImage] = useState(null);
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -90,7 +92,7 @@ export default function ScanAnalysis({ sectionKey, theme }) {
     setMessages(p => [...p, { role: 'user', text: `Analyze this ${cfg.sectionName} image`, image: base64, timestamp: new Date().toISOString() }]);
     persistMsg('user', `Analyze this ${cfg.sectionName} image`, { type: 'scan_upload' });
     try {
-      const reply = await callAPIStream(cfg.prompt, { base64 }, sectionKey, [], (partial) => { setStreamingText(partial); scrollDown(); });
+      const reply = await callAPIStream(cfg.prompt, { base64 }, sectionKey, [], (partial) => { setStreamingText(partial); scrollDown(); }, '', langMeta.name);
       setMessages(p => [...p, { role: 'assistant', text: reply, timestamp: new Date().toISOString() }]);
       persistMsg('assistant', reply, { type: 'scan_analysis' });
       setStreamingText('');
@@ -106,7 +108,7 @@ export default function ScanAnalysis({ sectionKey, theme }) {
     const q = text.trim(); setText(''); setLoading(true); setStreamingText('');
     persistMsg('user', q);
     try {
-      const reply = await callAPIStream(q, image ? { base64: image.base64 } : null, sectionKey, messages, (partial) => { setStreamingText(partial); scrollDown(); });
+      const reply = await callAPIStream(q, image ? { base64: image.base64 } : null, sectionKey, messages, (partial) => { setStreamingText(partial); scrollDown(); }, '', langMeta.name);
       setMessages(p => [...p, { role: 'assistant', text: reply, timestamp: new Date().toISOString() }]);
       persistMsg('assistant', reply);
       setStreamingText('');
@@ -118,7 +120,7 @@ export default function ScanAnalysis({ sectionKey, theme }) {
 
   const handleDrop = (e) => { e.preventDefault(); const file = e.dataTransfer.files[0]; if (file?.type.startsWith('image/')) handleFile(file); };
   const handleKey = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } };
-  const handleExport = () => { if (!messages.length) return setToast({ show: true, message: 'No data' }); exportDiagnosis(messages, cfg.sectionName); setToast({ show: true, message: 'Report generated!' }); };
+  const handleExport = () => { if (!messages.length) return setToast({ show: true, message: t('no_data') || 'No data' }); exportDiagnosis(messages, cfg.sectionName); setToast({ show: true, message: t('report_generated') || 'Report generated!' }); };
   const clearChat = () => { setMessages([]); setImage(null); setStreamingText(''); setZoom(1); setContrast(100); sessionIdRef.current = null; };
 
   const ToolBtn = ({ children, onClick, active, title }) => (
@@ -177,8 +179,8 @@ export default function ScanAnalysis({ sectionKey, theme }) {
                   <div className="absolute inset-0 bg-black/60 flex items-center justify-center backdrop-blur-sm">
                     <div className="px-8 py-4 rounded-2xl flex flex-col items-center gap-3" style={{ background: 'rgba(11,19,38,0.95)' }}>
                       <div className="w-10 h-10 border-2 border-white/20 border-t-[#7ad7c6] rounded-full animate-spin" />
-                      <span className="text-sm font-bold text-white font-display">Analyzing {cfg.sectionName}...</span>
-                      <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.5)' }}>AI Engine Processing</span>
+                      <span className="text-sm font-bold text-white font-display">{t('analyzing_scan')?.replace('{name}', cfg.sectionName) || `Analyzing ${cfg.sectionName}...`}</span>
+                      <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.5)' }}>{t('ai_engine') || 'AI Engine Processing'}</span>
                     </div>
                   </div>
                 )}
@@ -193,8 +195,8 @@ export default function ScanAnalysis({ sectionKey, theme }) {
                 <div className="w-24 h-24 rounded-3xl flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:shadow-lg"
                   style={{ background: 'rgba(122,215,198,0.06)', color: '#7ad7c6' }}>{cfg.icon}</div>
                 <div className="text-center">
-                  <p className="text-sm font-bold font-display text-white/80">{cfg.uploadLabel}</p>
-                  <p className="text-xs text-white/30 mt-1">Drag & drop or click to browse</p>
+                <p className="text-sm font-bold font-display text-white/80">{t({xray:'upload_xray',mri:'upload_mri',ct:'upload_ct'}[sectionKey]) || cfg.uploadLabel}</p>
+                   <p className="text-xs text-white/30 mt-1">{t('drag_or_click') || 'Drag & drop or click to browse'}</p>
                 </div>
               </button>
             )}
@@ -207,7 +209,7 @@ export default function ScanAnalysis({ sectionKey, theme }) {
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-xs font-bold flex items-center gap-2 font-display text-white/80">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5" style={{ color: '#7ad7c6' }}><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>
-                  Clinical Findings
+                  {t('clinical_findings') || 'Clinical Findings'}
                 </h3>
                 <span className="px-2 py-0.5 rounded-full text-[9px] font-bold" style={{ background: 'rgba(122,215,198,0.1)', color: '#7ad7c6' }}>AI v2.4</span>
               </div>
@@ -241,21 +243,21 @@ export default function ScanAnalysis({ sectionKey, theme }) {
             <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-xs font-bold" style={{ background: 'linear-gradient(135deg, #7ad7c6, #006156)' }}>AI</div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-sm font-bold font-display" style={{ color: 'var(--on-surface)' }}>{cfg.title}</span>
+                <span className="text-sm font-bold font-display" style={{ color: 'var(--on-surface)' }}>{t({xray:'xray_analysis',mri:'mri_scan',ct:'ct_scan'}[sectionKey]) || cfg.title}</span>
                 <span className="w-2 h-2 rounded-full bg-emerald-500" />
               </div>
               <p className="text-[10px]" style={{ color: 'var(--outline)' }}>Study: {studyId}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => fileRef.current?.click()} className="lg:hidden px-3 py-1.5 rounded-xl text-xs font-bold" style={{ background: dark ? 'rgba(122,215,198,0.08)' : 'rgba(0,121,107,0.06)', color: 'var(--primary)' }}>Upload</button>
+            <button onClick={() => fileRef.current?.click()} className="lg:hidden px-3 py-1.5 rounded-xl text-xs font-bold" style={{ background: dark ? 'rgba(122,215,198,0.08)' : 'rgba(0,121,107,0.06)', color: 'var(--primary)' }}>{t('upload') || 'Upload'}</button>
             {messages.length > 0 && (
               <>
                 <button onClick={handleExport} className="px-3 py-1.5 rounded-xl text-white text-[11px] font-bold transition-all hover:-translate-y-0.5 flex items-center gap-1.5" style={{ background: 'linear-gradient(135deg, #7ad7c6, #006156)' }}>
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                  Export
+                  {t('export') || 'Export'}
                 </button>
-                <button onClick={clearChat} className="px-3 py-1.5 rounded-xl text-[11px] font-semibold hover:opacity-70" style={{ color: 'var(--outline)' }}>Clear</button>
+                <button onClick={clearChat} className="px-3 py-1.5 rounded-xl text-[11px] font-semibold hover:opacity-70" style={{ color: 'var(--outline)' }}>{t('clear') || 'Clear'}</button>
               </>
             )}
           </div>
@@ -266,11 +268,11 @@ export default function ScanAnalysis({ sectionKey, theme }) {
           {messages.length === 0 && (
             <div className="flex flex-col items-center justify-center h-full text-center px-4">
               <div className="w-16 h-16 rounded-3xl flex items-center justify-center mb-4" style={{ background: dark ? 'rgba(122,215,198,0.06)' : 'rgba(0,121,107,0.06)', color: 'var(--primary)' }}>{cfg.icon}</div>
-              <p className="text-sm font-bold mb-1 font-display" style={{ color: 'var(--on-surface)' }}>{cfg.title}</p>
-              <p className="text-xs max-w-xs" style={{ color: 'var(--outline)' }}>Upload a {cfg.sectionName} image to start AI-powered analysis.</p>
+              <p className="text-sm font-bold mb-1 font-display" style={{ color: 'var(--on-surface)' }}>{t({xray:'xray_analysis',mri:'mri_scan',ct:'ct_scan'}[sectionKey]) || cfg.title}</p>
+              <p className="text-xs max-w-xs" style={{ color: 'var(--outline)' }}>{t({xray:'xray_subtitle',mri:'mri_subtitle',ct:'ct_subtitle'}[sectionKey]) || `Upload a ${cfg.sectionName} image to start AI-powered analysis.`}</p>
             </div>
           )}
-          {messages.map((msg, i) => <Message key={i} msg={msg} theme={theme} onCopy={() => setToast({ show: true, message: 'Copied!' })} />)}
+          {messages.map((msg, i) => <Message key={i} msg={msg} theme={theme} onCopy={() => setToast({ show: true, message: t('copied') || 'Copied!' })} />)}
           {loading && streamingText && <Message msg={{ role: 'assistant', text: streamingText }} theme={theme} onCopy={() => {}} />}
           {loading && !streamingText && (
             <div className="flex gap-3"><div className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-xs font-bold shrink-0" style={{ background: 'linear-gradient(135deg, #7ad7c6, #006156)' }}>AI</div>
@@ -284,15 +286,15 @@ export default function ScanAnalysis({ sectionKey, theme }) {
         {/* Quick Actions */}
         {messages.length > 0 && (
           <div className="px-4 py-2 flex flex-wrap gap-2" style={{ borderTop: `1px solid ${dark ? 'rgba(63,73,73,0.15)' : 'rgba(203,213,225,0.3)'}` }}>
-            <button onClick={handleExport} className="action-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> Report</button>
-            <button onClick={clearChat} className="action-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg> New Scan</button>
+            <button onClick={handleExport} className="action-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> {t('report') || 'Report'}</button>
+            <button onClick={clearChat} className="action-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg> {t('new_scan') || 'New Scan'}</button>
           </div>
         )}
 
         {/* Input */}
         <div className="px-4 pb-3 pt-2" style={{ background: dark ? '#131b2e' : '#ffffff' }}>
           <div className="flex items-center gap-2 px-3 py-2 rounded-2xl" style={{ background: dark ? 'var(--surface-highest)' : 'var(--surface-container)', boxShadow: `inset 0 0 0 1px ${dark ? 'rgba(63,73,73,0.2)' : 'rgba(203,213,225,0.4)'}` }}>
-            <input value={text} onChange={e => setText(e.target.value)} onKeyDown={handleKey} placeholder="Ask about the scan..." className="flex-1 bg-transparent text-sm outline-none" style={{ color: 'var(--on-surface)' }} />
+            <input value={text} onChange={e => setText(e.target.value)} onKeyDown={handleKey} placeholder={t('ask_scan') || 'Ask about the scan...'} className="flex-1 bg-transparent text-sm outline-none" style={{ color: 'var(--on-surface)' }} />
             <button onClick={sendMessage} disabled={!text.trim() || loading} className={`w-8 h-8 rounded-xl flex items-center justify-center text-white transition-all ${text.trim() && !loading ? 'hover:scale-105' : 'opacity-25 cursor-not-allowed'}`}
               style={{ background: text.trim() && !loading ? 'linear-gradient(135deg, #7ad7c6, #006156)' : 'var(--outline)' }}>
               <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4"><path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>

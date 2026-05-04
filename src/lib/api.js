@@ -1,8 +1,17 @@
-import { SECTIONS, API_KEY, API_URL, MODEL } from '../config';
+import { SECTIONS, EDGE_FN_AI_CHAT, MODEL } from '../config';
+import { supabase } from './supabase';
 
 /**
- * Stream a chat completion from the HuggingFace API.
- * Supports optional RAG context and web search context injection into the system prompt.
+ * Get the current user's access token for Edge Function auth.
+ */
+async function getAccessToken() {
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.access_token || '';
+}
+
+/**
+ * Stream a chat completion via the Supabase Edge Function proxy.
+ * The HuggingFace API key is stored server-side — never exposed to the browser.
  * @param {string} language — The display name of the language to respond in (e.g. "Hindi")
  * @param {string} webSearchContext — Formatted web search results to inject
  */
@@ -22,7 +31,7 @@ export async function callAPIStream(text, image, section, prevHistory, onChunk, 
 
   // Inject language preference
   if (language && language !== 'English') {
-    systemPrompt += `\n\n## LANGUAGE INSTRUCTION:\nYou MUST respond entirely in ${language}. All text, questions, options, headings, and explanations must be in ${language}. Use medical terminology in ${language} where possible, but keep drug names and medical abbreviations in English.`;
+    systemPrompt += `\n\n## LANGUAGE INSTRUCTION:\nYou MUST respond entirely in ${language}. All text, questions, options, headings, and explanations must be in ${language}. Use medical terminology in ${language} where possible, but keep medical abbreviations in English. Remember: NEVER name any specific medication, drug, or supplement in any language.`;
   }
 
   const messages = [{ role: 'system', content: systemPrompt }];
@@ -44,14 +53,18 @@ export async function callAPIStream(text, image, section, prevHistory, onChunk, 
   if (image) currentContent.push({ type: 'image_url', image_url: { url: image.base64 } });
   if (currentContent.length) messages.push({ role: 'user', content: currentContent });
 
+  const accessToken = await getAccessToken();
   const MAX_RETRIES = 3;
   const body = JSON.stringify({ model: MODEL, messages, max_tokens: 2048, temperature: 0.7, stream: true });
 
   let res;
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    res = await fetch(API_URL, {
+    res = await fetch(EDGE_FN_AI_CHAT, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${API_KEY}`, 'Content-Type': 'application/json' },
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
       body,
     });
 
@@ -66,7 +79,7 @@ export async function callAPIStream(text, image, section, prevHistory, onChunk, 
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error?.message || `API request failed (${res.status})`);
+    throw new Error(err.error?.message || err.error || `API request failed (${res.status})`);
   }
 
   const reader = res.body.getReader();

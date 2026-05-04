@@ -1,4 +1,5 @@
 import { supabase, isSupabaseConfigured } from './supabase';
+import { EDGE_FN_GEMINI, EDGE_FN_AI_CHAT, MODEL } from '../config';
 
 // ─── PDF Text Extraction ─────────────────────────────────
 export async function extractTextFromPDF(file) {
@@ -19,12 +20,9 @@ export async function extractTextFromPDF(file) {
   return fullText.trim();
 }
 
-// ─── Image Text Extraction (Gemini Flash Vision) ────────
-// Uses Google Gemini Flash for superior handwriting and medical document OCR.
-// Falls back to HuggingFace if Gemini key is not configured.
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
-const GEMINI_MODEL = 'gemini-2.0-flash';
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+// ─── Image Text Extraction (via Edge Function proxies) ──
+// Uses Gemini Flash Edge Function for superior handwriting and medical document OCR.
+// Falls back to AI Chat Edge Function (HuggingFace) if Gemini fails.
 
 const EXTRACTION_PROMPT = `You are a medical document OCR specialist. Extract ALL text from this medical document image.
 
@@ -74,49 +72,47 @@ export async function extractTextFromImage(file) {
   const base64Data = base64Full.split(',')[1];
   const mimeType = file.type || 'image/jpeg';
 
-  // ─── Try Gemini Flash first (much better at handwriting) ───
-  if (GEMINI_API_KEY) {
+  // Get the user's session token for Edge Function auth
+  const { data: { session } } = await supabase.auth.getSession();
+  const accessToken = session?.access_token || '';
+
+  // ─── Try Gemini Flash Edge Function first (much better at handwriting) ───
+  if (EDGE_FN_GEMINI) {
     try {
-      const response = await fetch(`${GEMINI_URL}?key=${GEMINI_API_KEY}`, {
+      const response = await fetch(EDGE_FN_GEMINI, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
-          contents: [{
-            parts: [
-              { text: `${EXTRACTION_PROMPT}\n\nExtract all text from this medical document image. Read both printed and handwritten text carefully.` },
-              { inline_data: { mime_type: mimeType, data: base64Data } },
-            ],
-          }],
-          generationConfig: {
-            temperature: 0.1,
-            maxOutputTokens: 4096,
-          },
+          base64Data,
+          mimeType,
+          prompt: `${EXTRACTION_PROMPT}\n\nExtract all text from this medical document image. Read both printed and handwritten text carefully.`,
         }),
       });
 
       if (response.ok) {
         const data = await response.json();
-        const extractedText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        const extractedText = data.text;
 
         if (extractedText && extractedText.trim().length > 50) {
           return `[Extracted from image: ${file.name} — via Gemini Flash]\n\n${extractedText.trim()}`;
         }
       } else {
-        console.warn('Gemini extraction failed:', response.status, await response.text().catch(() => ''));
+        console.warn('Gemini Edge Function failed:', response.status);
       }
     } catch (err) {
-      console.warn('Gemini extraction error, falling back to HuggingFace:', err.message);
+      console.warn('Gemini Edge Function error, falling back to HuggingFace:', err.message);
     }
   }
 
-  // ─── Fallback: HuggingFace Vision model ───
+  // ─── Fallback: HuggingFace via AI Chat Edge Function ───
   try {
-    const { API_KEY, API_URL, MODEL } = await import('../config');
-
-    const response = await fetch(API_URL, {
+    const response = await fetch(EDGE_FN_AI_CHAT, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${API_KEY}`,
+        Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -146,7 +142,7 @@ export async function extractTextFromImage(file) {
       }
     }
   } catch (err) {
-    console.error('HuggingFace extraction also failed:', err);
+    console.error('HuggingFace Edge Function also failed:', err);
   }
 
   return `[Medical Image: ${file.name}] — Image uploaded but text extraction failed. The AI will analyze this image visually during chat.`;

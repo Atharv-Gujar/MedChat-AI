@@ -6,14 +6,15 @@
 
 [![React](https://img.shields.io/badge/React-19.x-61DAFB?style=flat&logo=react)](https://reactjs.org/)
 [![Vite](https://img.shields.io/badge/Vite-6.x-646CFF?style=flat&logo=vite)](https://vitejs.dev/)
-[![Supabase](https://img.shields.io/badge/Supabase-Auth%20%2B%20DB-3ECF8E?style=flat&logo=supabase)](https://supabase.com/)
+[![Supabase](https://img.shields.io/badge/Supabase-Auth%20%2B%20DB%20%2B%20Edge-3ECF8E?style=flat&logo=supabase)](https://supabase.com/)
+[![Gemini](https://img.shields.io/badge/Gemini-2.0%20Flash-4285F4?style=flat&logo=google)](https://ai.google.dev/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-*A comprehensive medical consultation platform that combines AI diagnostics, medical image analysis, real-time research retrieval, and multi-language support.*
+*A comprehensive medical consultation platform that combines AI diagnostics, medical image analysis, real-time research retrieval, and multi-language support — built with a secure, serverless architecture.*
 
 ---
 
-[Features](#-features) • [Demo](#-screenshots) • [Tech Stack](#-tech-stack) • [Setup](#-getting-started) • [Architecture](#-architecture) • [Languages](#-supported-languages)
+[Features](#-features) • [Tech Stack](#-tech-stack) • [Architecture](#-system-architecture) • [Setup](#-getting-started) • [Languages](#-supported-languages)
 
 </div>
 
@@ -24,11 +25,11 @@
 ### 🩺 AI Medical Consultation
 - **Symptom-based diagnosis** with interactive MCQ-driven assessments
 - **Differential diagnosis** with probability charts and clinical reasoning
-- **Diagnostic reports** exportable as styled PDFs
+- **SOAP-format diagnostic reports** exportable as styled PDFs
 - **Conversation memory** — maintains clinical context across the session
 
 ### 🔬 Medical Image Analysis
-- **X-Ray, MRI & CT scan** interpretation via AI
+- **X-Ray, MRI & CT scan** interpretation via Gemini 2.0 Flash Vision AI
 - **Drag & drop** image upload with preview
 - **Real-time clinical findings** extraction from medical images
 
@@ -39,10 +40,15 @@
 - **Source selection controls** — Toggle individual sources on/off with real-time status
 - **Cited responses** — Every answer includes clickable source citations
 
-### 📄 Document-Augmented Diagnosis
+### 📄 Document-Augmented Diagnosis (RAG)
 - **Upload medical reports** (PDF, images) for AI-contextualized diagnosis
-- **Full-text extraction** from uploaded documents
-- **Automatic report injection** into diagnostic context
+- **Gemini 2.0 Flash OCR** for handwritten prescription/report extraction
+- **Automatic report injection** into diagnostic context via RAG pipeline
+
+### 📋 History Management
+- **Full conversation history** — search, filter, and browse past sessions
+- **Multi-select & bulk delete** past diagnostic conversations
+- **Session restore** — continue any previous conversation
 
 ### 🌐 Multi-Language Support
 - **11 Indian languages** with real-time UI translation
@@ -60,17 +66,10 @@
 - **Dark/Light mode** with smooth transitions
 - **Responsive design** — works on mobile, tablet, and desktop
 
----
-
-## 🖼️ Screenshots
-
-| Dashboard | AI Consultation | Research Module |
-|:---------:|:---------------:|:---------------:|
-| Multi-modal diagnostic hub | Symptom MCQ + diagnosis chart | Tavily + WHO + PubMed search |
-
-| Scan Analysis | Multi-Language | Dark Mode |
-|:-------------:|:--------------:|:---------:|
-| X-Ray/MRI/CT interpretation | 11 Indian languages | Full dark theme support |
+### 🔒 Secure Architecture
+- **All API keys stored server-side** in Supabase Edge Functions
+- **No secrets exposed** to the browser — Gemini, HuggingFace, and Tavily keys are proxied securely
+- **Token-based auth verification** on every Edge Function call
 
 ---
 
@@ -80,13 +79,141 @@
 |-------|-----------|
 | **Frontend** | React 19, React Router 7, Tailwind CSS 3 |
 | **Build** | Vite 6 |
-| **AI Model** | HuggingFace Inference API (Mistral / medical LLMs) |
+| **AI Chat Model** | HuggingFace Inference (google/gemma-3-27b-it) via `ai-chat` Edge Function |
+| **AI Vision/OCR** | Google Gemini 2.0 Flash via `gemini-extract` Edge Function |
+| **Web Search** | Tavily AI Search via `tavily-search` Edge Function |
+| **Medical Data** | WHO GHO API, WHO Disease Outbreak News, PubMed E-utilities |
 | **Auth & DB** | Supabase (PostgreSQL + Auth + Row Level Security) |
-| **Web Search** | Tavily AI Search (primary), WHO GHO API, PubMed E-utilities |
-| **Document Processing** | Full-text extraction + Supabase storage |
-| **PDF Parsing** | pdf.js (Mozilla) |
+| **Serverless** | Supabase Edge Functions (Deno runtime) |
 | **Localization** | Custom i18n system (11 languages) |
-| **Export** | Browser-native PDF generation with styled templates |
+| **PDF Export** | Browser-native PDF generation with probability bar charts |
+
+---
+
+## 🏗️ System Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    CLIENT (Browser)                      │
+│          React 19 + Vite + TailwindCSS + Router v7       │
+│                                                         │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌────────────┐ │
+│  │Dashboard │ │ ChatPage │ │ScanPage  │ │HistoryPage │ │
+│  └──────────┘ └──────────┘ └──────────┘ └────────────┘ │
+│        │            │            │             │         │
+│  ┌─────┴────────────┴────────────┴─────────────┴─────┐  │
+│  │              Library Layer                         │  │
+│  │  api.js │ rag.js │ search.js │ supabase.js        │  │
+│  └───────────────────┬───────────────────────────────┘  │
+└──────────────────────┼──────────────────────────────────┘
+                       │ HTTPS (Bearer Token Auth)
+┌──────────────────────┼──────────────────────────────────┐
+│              SUPABASE BACKEND                            │
+│                                                         │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │          Edge Functions (Deno Runtime)            │    │
+│  │                                                   │    │
+│  │  ai-chat ─────────→ HuggingFace (Gemma 3 27B)   │    │
+│  │  gemini-extract ──→ Gemini 2.0 Flash (OCR)       │    │
+│  │  tavily-search ───→ Tavily API (Web Search)      │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                         │
+│  ┌──────────────┐  ┌──────────────┐  ┌───────────┐     │
+│  │ PostgreSQL   │  │  Auth        │  │  Storage   │     │
+│  │ chat_sessions│  │ Email+Google │  │ med-images │     │
+│  │ messages     │  │   OAuth      │  │   bucket   │     │
+│  └──────────────┘  └──────────────┘  └───────────┘     │
+└─────────────────────────────────────────────────────────┘
+                       │
+          ┌────────────┼────────────┐
+          ▼            ▼            ▼
+   ┌───────────┐ ┌──────────┐ ┌──────────┐
+   │ WHO APIs  │ │ PubMed   │ │  CORS    │
+   │ GHO + DON │ │ E-utils  │ │  Proxy   │
+   └───────────┘ └──────────┘ └──────────┘
+   (called directly from frontend — free, no keys)
+```
+
+---
+
+## 📁 Project Structure
+
+```
+MedChat-AI/
+├── public/
+│   └── pdf.worker.min.mjs          # PDF.js worker for report parsing
+├── src/
+│   ├── components/
+│   │   ├── DocumentUpload.jsx      # Medical report upload (PDF/image)
+│   │   ├── InputArea.jsx           # Chat input with voice & image
+│   │   ├── Message.jsx             # Message bubble + diagnosis chart + image gallery
+│   │   ├── ProtectedRoute.jsx      # Auth-guarded route wrapper
+│   │   ├── Sidebar.jsx             # Navigation sidebar
+│   │   ├── SymptomChecker.jsx      # MCQ-based symptom assessment
+│   │   ├── Toast.jsx               # Notification toasts
+│   │   ├── TopBar.jsx              # Header with language & theme controls
+│   │   ├── VoiceButton.jsx         # Text-to-speech button
+│   │   └── WelcomeScreen.jsx       # Section-specific landing screens
+│   ├── contexts/
+│   │   ├── AuthContext.jsx         # Supabase auth state management
+│   │   └── LanguageContext.jsx     # i18n language provider
+│   ├── i18n/
+│   │   ├── index.js                # Language registry & translation loader
+│   │   └── locales/                # 11 language JSON files (en, hi, mr, gu, bn, ta, te, kn, ml, pa, ur)
+│   ├── lib/
+│   │   ├── api.js                  # HuggingFace streaming inference via Edge Function
+│   │   ├── export.js               # PDF report generation with charts
+│   │   ├── rag.js                  # Document retrieval & OCR via Gemini Edge Function
+│   │   ├── search.js               # Tavily + WHO + PubMed search orchestrator
+│   │   └── supabase.js             # Supabase client & session management
+│   ├── pages/
+│   │   ├── AuthPage.jsx            # Login / Sign-up page
+│   │   ├── ChatPage.jsx            # Main consultation interface
+│   │   ├── Dashboard.jsx           # Diagnostic hub / home
+│   │   ├── HistoryPage.jsx         # Session history with search & bulk actions
+│   │   └── ScanAnalysis.jsx        # Medical image analysis (X-Ray, MRI, CT)
+│   ├── App.jsx                     # Router & layout
+│   ├── config.js                   # System prompts, AI config & Edge Function URLs
+│   ├── index.css                   # Global styles & design system
+│   └── main.jsx                    # React entry point
+├── supabase/
+│   └── functions/
+│       ├── ai-chat/index.ts        # Edge Function: proxy to HuggingFace (Gemma 3)
+│       ├── gemini-extract/index.ts # Edge Function: proxy to Gemini 2.0 Flash (OCR)
+│       └── tavily-search/index.ts  # Edge Function: proxy to Tavily Search API
+├── .env.example                    # Environment variable template
+├── index.html                      # HTML entry point
+├── package.json                    # Dependencies & scripts
+├── tailwind.config.js              # Tailwind CSS configuration
+├── postcss.config.js               # PostCSS configuration
+└── vite.config.js                  # Vite build configuration
+```
+
+---
+
+## 🔄 Research Module — Data Flow
+
+```
+User Query
+    │
+    ├─── Tavily AI Search ──→ Web results + images + AI summary
+    │     (via tavily-search Edge Function)
+    │
+    ├─── WHO GHO API ──────→ Health statistics + disease indicators
+    │     (direct call, no key needed)
+    │
+    ├─── WHO DON API ──────→ Disease outbreak alerts
+    │     (direct call, no key needed)
+    │
+    └─── PubMed E-utils ───→ Peer-reviewed papers + PMIDs
+          (direct call, no key needed)
+    │
+    ▼
+Context Injection → AI generates cited, evidence-based response
+    │
+    ▼
+Message Bubble → Text + Image Gallery + Source Citations
+```
 
 ---
 
@@ -95,10 +222,12 @@
 ### Prerequisites
 
 - **Node.js** 18+ and **npm** 9+
+- **Supabase** project with Edge Functions deployed
 - API keys (all have free tiers):
   - [HuggingFace](https://huggingface.co/settings/tokens) — AI model inference
   - [Supabase](https://supabase.com) — Authentication & database
   - [Tavily](https://tavily.com) — Web search (1000 free/month)
+  - [Google AI Studio](https://aistudio.google.com/apikey) — Gemini API key
 
 ### Installation
 
@@ -124,84 +253,18 @@ The app will be available at `http://localhost:5173/`
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `VITE_API_KEY` | ✅ | HuggingFace API token for AI inference |
 | `VITE_SUPABASE_URL` | ✅ | Supabase project URL |
 | `VITE_SUPABASE_ANON_KEY` | ✅ | Supabase anonymous/public key |
-| `VITE_TAVILY_API_KEY` | ⚡ | Tavily API key (needed for web search in Research module) |
 
-> **Note:** WHO and PubMed APIs are completely free and require no API keys.
+> **Note:** HuggingFace, Gemini, and Tavily API keys are stored as **Supabase Edge Function secrets** (server-side only) and are never exposed to the client.
 
----
+### Edge Function Secrets (set via Supabase Dashboard)
 
-## 📁 Architecture
-
-```
-MedChat-AI/
-├── public/
-│   └── pdf.worker.min.mjs      # PDF.js worker for report parsing
-├── src/
-│   ├── components/
-│   │   ├── DocumentUpload.jsx   # Medical report upload (PDF/image)
-│   │   ├── InputArea.jsx        # Chat input with voice & image
-│   │   ├── Message.jsx          # Message bubble + diagnosis chart + image gallery
-│   │   ├── ProtectedRoute.jsx   # Auth-guarded route wrapper
-│   │   ├── Sidebar.jsx          # Navigation sidebar
-│   │   ├── SymptomChecker.jsx   # MCQ-based symptom assessment
-│   │   ├── Toast.jsx            # Notification toasts
-│   │   ├── TopBar.jsx           # Header with language & theme controls
-│   │   ├── VoiceButton.jsx      # Text-to-speech button
-│   │   └── WelcomeScreen.jsx    # Section-specific landing screens
-│   ├── contexts/
-│   │   ├── AuthContext.jsx      # Supabase auth state management
-│   │   └── LanguageContext.jsx  # i18n language provider
-│   ├── i18n/
-│   │   ├── index.js             # Language registry & translation loader
-│   │   └── locales/             # 11 language JSON files
-│   ├── lib/
-│   │   ├── api.js               # HuggingFace streaming inference
-│   │   ├── export.js            # PDF report generation
-│   │   ├── rag.js               # Document retrieval from Supabase
-│   │   ├── search.js            # Tavily + WHO + PubMed orchestrator
-│   │   └── supabase.js          # Supabase client & session management
-│   ├── pages/
-│   │   ├── AuthPage.jsx         # Login / Sign-up page
-│   │   ├── ChatPage.jsx         # Main consultation interface
-│   │   ├── Dashboard.jsx        # Diagnostic hub / home
-│   │   └── ScanAnalysis.jsx     # Medical image analysis
-│   ├── App.jsx                  # Router & layout
-│   ├── config.js                # System prompts & AI configuration
-│   ├── index.css                # Global styles & design system
-│   └── main.jsx                 # React entry point
-├── .env.example                 # Environment variable template
-├── index.html                   # HTML entry point
-├── package.json                 # Dependencies & scripts
-├── tailwind.config.js           # Tailwind CSS configuration
-├── postcss.config.js            # PostCSS configuration
-└── vite.config.js               # Vite build configuration
-```
-
----
-
-## 🔄 Research Module — Data Flow
-
-```
-User Query
-    │
-    ├─── Tavily AI Search ──→ Web results + images + AI summary
-    │       (priority 1)
-    │
-    ├─── WHO GHO API ──────→ Health statistics + outbreak alerts
-    │       (priority 2)
-    │
-    └─── PubMed E-utils ───→ Peer-reviewed papers + PMIDs
-            (priority 3)
-    │
-    ▼
-Context Injection → AI generates cited, evidence-based response
-    │
-    ▼
-Message Bubble → Text + Image Gallery + Source Citations
-```
+| Secret | Description |
+|--------|-------------|
+| `HF_API_KEY` | HuggingFace API token for Gemma 3 inference |
+| `GEMINI_API_KEY` | Google Gemini API key for vision/OCR |
+| `TAVILY_API_KEY` | Tavily API key for web search |
 
 ---
 

@@ -152,7 +152,7 @@ export default function Message({ msg, theme, onCopy }) {
     navigator.clipboard.writeText(msg.text).then(() => { if (onCopy) onCopy(); }).catch(() => {});
   };
 
-  const isReport = !isUser && msg.text && (msg.text.includes('Diagnostic Report') || msg.text.includes('Differential Diagnosis'));
+  const isReport = !isUser && msg.text && (msg.text.includes('Diagnostic Report') || msg.text.includes('Differential Diagnosis') || msg.text.includes('SOAP Note') || msg.text.includes('S — Subjective'));
 
   // Parse differential diagnosis for chart
   const diffDx = !isUser && msg.text ? parseDifferentialDiagnosis(msg.text) : null;
@@ -220,7 +220,7 @@ export default function Message({ msg, theme, onCopy }) {
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5">
                   <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
                 </svg>
-                DIAGNOSTIC REPORT
+                SOAP DIAGNOSTIC REPORT
               </div>
               {msg.usedRAG && (
                 <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full"

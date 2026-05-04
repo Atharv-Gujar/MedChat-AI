@@ -19,7 +19,7 @@ export function exportDiagnosis(messages, sectionName = 'General Medical') {
 
   // Find the diagnostic report from AI (the longest AI message, or one containing "Diagnostic Report")
   const aiMessages = messages.filter(m => m.role === 'assistant' && m.text && m.text.length > 50);
-  const reportMsg = aiMessages.find(m => m.text.includes('Diagnostic Report') || m.text.includes('Probable Causes') || m.text.includes('Assessment Summary'))
+  const reportMsg = aiMessages.find(m => m.text.includes('Diagnostic Report') || m.text.includes('SOAP Note') || m.text.includes('S — Subjective') || m.text.includes('Probable Causes') || m.text.includes('Assessment Summary'))
     || aiMessages[aiMessages.length - 1];
 
   if (!reportMsg) {
@@ -106,7 +106,7 @@ export function exportDiagnosis(messages, sectionName = 'General Medical') {
       <div class="report-header">
         <div class="header-left">
           <h1>Medical Diagnostic Report</h1>
-          <div class="subtitle">${sectionName} — AI-Assisted Clinical Assessment</div>
+          <div class="subtitle">${sectionName} — AI-Assisted Clinical Assessment (SOAP Format)</div>
         </div>
         <div class="header-right">
           <div class="logo">MedChat AI</div>

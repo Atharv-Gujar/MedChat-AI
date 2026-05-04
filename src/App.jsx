@@ -9,6 +9,7 @@ import Dashboard from './pages/Dashboard';
 import ScanAnalysis from './pages/ScanAnalysis';
 import ChatPage from './pages/ChatPage';
 import AuthPage from './pages/AuthPage';
+import HistoryPage from './pages/HistoryPage';
 
 export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -50,6 +51,7 @@ export default function App() {
                         <Route path="/xray" element={<ScanAnalysis sectionKey="xray" theme={theme} />} />
                         <Route path="/mri" element={<ScanAnalysis sectionKey="mri" theme={theme} />} />
                         <Route path="/ct" element={<ScanAnalysis sectionKey="ct" theme={theme} />} />
+                        <Route path="/history" element={<HistoryPage theme={theme} />} />
                       </Routes>
                     </main>
                   </div>

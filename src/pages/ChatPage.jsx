@@ -187,7 +187,7 @@ export default function ChatPage({ sectionKey, theme }) {
           webSources, searchedWith, webImages,
         }]);
         persistMessage('assistant', reply, {
-          type: reply.includes('Diagnostic Report') ? 'report' : 'chat',
+          type: (reply.includes('Diagnostic Report') || reply.includes('SOAP Note')) ? 'report' : 'chat',
           usedRAG: !!ragContext,
           webSources: webSources.length,
         });

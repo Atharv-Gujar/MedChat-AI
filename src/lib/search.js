@@ -1,7 +1,10 @@
+import { EDGE_FN_TAVILY } from '../config';
+import { supabase } from './supabase';
+
 /**
  * Web Search Module for MedChat AI
  * Provides real-time medical information via WHO + PubMed APIs.
- * All APIs are FREE and require NO API keys.
+ * Tavily search goes through a Supabase Edge Function (API key stored server-side).
  *
  * Sources:
  *  1. WHO GHO (Global Health Observatory) — health statistics, disease indicators
@@ -235,28 +238,26 @@ async function searchPubMed(query) {
   }
 }
 
-// ─── Tavily (AI-Optimized Web Search) ─────────────────────
+// ─── Tavily (AI-Optimized Web Search via Edge Function) ───
 async function searchTavily(query) {
-  const apiKey = import.meta.env.VITE_TAVILY_API_KEY;
-  if (!apiKey) return { results: [], images: [] };
+  if (!EDGE_FN_TAVILY) return { results: [], images: [] };
 
   try {
-    const res = await fetch('https://api.tavily.com/search', {
+    // Get the user's session token for Edge Function auth
+    const { data: { session } } = await supabase.auth.getSession();
+    const accessToken = session?.access_token || '';
+
+    const res = await fetch(EDGE_FN_TAVILY, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        api_key: apiKey,
-        query: `${query} medical health latest`,
-        search_depth: 'advanced',
-        include_images: true,
-        include_answer: true,
-        max_results: 5,
-        topic: 'general',
-      }),
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ query }),
     });
 
     if (!res.ok) {
-      console.warn('Tavily API error:', res.status);
+      console.warn('Tavily Edge Function error:', res.status);
       return { results: [], images: [] };
     }
 

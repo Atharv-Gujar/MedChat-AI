@@ -81,6 +81,19 @@ export default function Sidebar({ open, onClose, theme, toggleTheme }) {
             </NavLink>
           );
         })}
+
+        <div className="text-[0.6rem] font-bold uppercase tracking-[0.15em] px-3 pb-2 pt-5" style={{ color: 'var(--outline)' }}>{t('history') || 'History'}</div>
+
+        <NavLink to="/history" className="block mb-0.5" onClick={onClose}>
+          <div className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl transition-all duration-200 relative`}
+            style={isActive('/history') ? { background: dark ? 'rgba(122,215,198,0.06)' : 'rgba(0,121,107,0.06)' } : {}}>
+            {isActive('/history') && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full" style={{ background: 'var(--primary)' }} />}
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-colors" style={{ background: isActive('/history') ? (dark ? 'rgba(122,215,198,0.12)' : 'rgba(0,121,107,0.1)') : (dark ? 'rgba(255,255,255,0.04)' : '#f1f5f9'), color: isActive('/history') ? 'var(--primary)' : 'var(--on-surface-variant)' }}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+            </div>
+            <span className="text-[0.82rem] font-semibold" style={{ color: isActive('/history') ? 'var(--primary)' : 'var(--on-surface-variant)' }}>{t('history') || 'History'}</span>
+          </div>
+        </NavLink>
       </nav>
 
       {/* Bottom */}
